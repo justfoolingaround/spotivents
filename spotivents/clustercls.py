@@ -20,6 +20,8 @@ class SpotifyTrackMetadata:
     iteration: str
     actions: Dict[str, str]
     autoplay: Dict[str, str]
+    media: Dict[str, str]
+    decision_id: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data):
@@ -41,9 +43,15 @@ class SpotifyTrackMetadata:
             "is_autoplay": data.pop("autoplay.is_autoplay", None),
         }
 
+        media = {
+            "media_type": data.pop("media.media_type", None),
+            "media_start_position": data.pop("media.start_position", None),
+        }
+
         return cls(
             actions=actions,
             autoplay=autoplay,
+            media=media,
             **data,
         )
 
@@ -137,7 +145,8 @@ class SpotifyPlayerStatePartialTrack:
     uid: str
     metadata: SpotifyPlayerStatePartialTrackMetadata
     provider: str
-    removed: Optional[list[str]] = None
+    removed: Optional[List[str]] = None
+    blocked: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data):
@@ -239,6 +248,7 @@ class SpotifyConnectDevice:
 
     spirc_version: Optional[str] = None
     metadata_map: Optional[dict] = None
+    deduplication_id: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data):
@@ -281,7 +291,7 @@ def iter_handled_payloads(
     for payload in payloads:
         shallow_payload = payload.copy()
 
-        if shallow_payload["update_reason"] == "DEVICE_STATE_CHANGED":
+        if shallow_payload.get("update_reason") == "DEVICE_STATE_CHANGED":
             cluster = shallow_payload.pop("cluster", None)
             yield {
                 "cluster": SpotifyDeviceStateChangeCluster.from_dict(cluster),
