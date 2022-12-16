@@ -111,6 +111,9 @@ class SpotifyPlayerStatePartialTrackMetadata:
     album_title: Optional[str] = None
     album_uri: Optional[str] = None
 
+    media: Dict[str, str] = None
+    decision_id: Optional[str] = None
+
     @classmethod
     def from_dict(cls, data):
 
@@ -131,9 +134,15 @@ class SpotifyPlayerStatePartialTrackMetadata:
             "is_autoplay": data.pop("autoplay.is_autoplay", None),
         }
 
+        media = {
+            "media_type": data.pop("media.media_type", None),
+            "media_start_position": data.pop("media.start_position", None),
+        }
+
         return cls(
             actions=actions,
             autoplay=autoplay,
+            media=media,
             **data,
         )
 
@@ -275,12 +284,15 @@ class SpotifyDeviceStateChangeCluster:
         if not data:
             return None
 
+        devices = {
+            device_id: SpotifyConnectDevice.from_dict(device)
+            for device_id, device in data.pop("devices", {}).items()
+        }
+        devices.update(active=devices[data["active_device_id"]])
+
         return cls(
             player_state=SpotifyPlayerState.from_dict(data.pop("player_state", None)),
-            devices={
-                device_id: SpotifyConnectDevice.from_dict(device)
-                for device_id, device in data.pop("devices", {}).items()
-            },
+            devices=devices,
             **data,
         )
 
