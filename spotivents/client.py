@@ -18,7 +18,6 @@ class SpotifyClient:
     def __init__(
         self,
         session: aiohttp.ClientSession,
-        raw_bearer_response: dict,
         spotify_cookie: str,
     ):
 
@@ -27,14 +26,7 @@ class SpotifyClient:
 
         self.session = session
 
-        self.ws_task = self.loop.create_task(
-            ws_connect(
-                session,
-                raw_bearer_response["accessToken"],
-                raw_bearer_response["clientId"],
-                self.event_handler,
-            )
-        )
+        self.ws_task = None
 
         self.cluster_change_handlers = defaultdict(list)
 
@@ -42,7 +34,7 @@ class SpotifyClient:
         self.cluster_load_callbacks = list()
         self.cluster_ready_callbacks = list()
 
-        self.raw_bearer_response = raw_bearer_response
+        self.raw_bearer_response = {}
         self.raw_client_token_response = {}
 
     @staticmethod
@@ -180,16 +172,22 @@ class SpotifyClient:
 
     @classmethod
     async def create(cls, spotify_cookie, *, session=None):
-
         session = session or aiohttp.ClientSession()
-        access_token_response = await cls.get_access_token_from_cookie(
-            session, spotify_cookie
+        return cls(session, spotify_cookie)
+
+    async def run(self, *, is_blocking=True):
+
+        self.ws_task = self.loop.create_task(
+            ws_connect(
+                self.session,
+                (await self.bearer_token())["accessToken"],
+                (await self.bearer_token())["clientId"],
+                self.event_handler,
+            )
         )
 
-        return cls(session, access_token_response, spotify_cookie)
-
-    async def run(self):
-        await self.ws_task
+        if is_blocking:
+            await self.ws_task
 
     # TODO: Add entity querying [playlists, albums, artists, tracks]
     # TODO: Add player cluster querying

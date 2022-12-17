@@ -1,12 +1,28 @@
-from .client import SpotifyClient
 from .constants import SPOTIFY_HOSTNAME
 
 
 class SpotifyAPIControllerClient:
-    def __init__(self, ws_client: SpotifyClient):
+    def __init__(self, ws_client):
         self.session = ws_client.session
-
         self.ws_client = ws_client
+
+    async def get_active_device_id(self):
+
+        if self.ws_client.cluster is not None:
+            return self.ws_client.cluster.active_device_id
+
+        async with self.session.get(
+            f"https://api.{SPOTIFY_HOSTNAME}/v1/me/player/devices",
+            headers={
+                "Authorization": f"Bearer {(await self.ws_client.bearer_token())['accessToken']}"
+            },
+        ) as response:
+            response.raise_for_status()
+            data = await response.json()
+
+        for device in data["devices"]:
+            if device["is_active"]:
+                return device["id"]
 
     async def connect_call(
         self,
@@ -21,7 +37,9 @@ class SpotifyAPIControllerClient:
         bearer_token = await self.ws_client.bearer_token()
 
         if include_from_to:
-            active_device = self.ws_client.cluster.active_device_id
+            active_device = (
+                await self.get_active_device_id() or bearer_token["clientId"]
+            )
             suffix = (
                 f"/from/{from_device or active_device}/to/{to_device or active_device}"
             )
