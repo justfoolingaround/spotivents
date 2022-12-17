@@ -163,7 +163,21 @@ class SpotifyAPIControllerClient:
     async def resume(self, *args, **kwargs):
         return await self.set_playback("resume", *args, **kwargs)
 
-    play = resume
-
     async def seek(self, position: int, *args, **kwargs):
         return await self.set_seek(position, *args, **kwargs)
+
+    async def play(self, entity_uri: str, *args, **kwargs):
+        return await self.connect_call(
+            "POST",
+            f"/player/command",
+            json={
+                "command": {
+                    "endpoint": "play",
+                    "context": {
+                        "url": f"context://{entity_uri}",
+                    },
+                }
+            },
+            *args,
+            **kwargs,
+        )
