@@ -5,23 +5,27 @@ from typing import Dict, List, Optional
 @dataclass
 class SpotifyTrackMetadata:
 
-    track_player: str
-    image_xlarge_url: str
     page_instance_id: str
-    image_large_url: str
-    album_title: str
-    interaction_id: str
-    artist_uri: str
-    image_small_url: str
-    context_uri: str
-    album_uri: str
-    entity_uri: str
-    image_url: str
-    iteration: str
     actions: Dict[str, str]
+    interaction_id: str
     autoplay: Dict[str, str]
-    media: Dict[str, str]
+
+    context_uri: Optional[str] = None
+    entity_uri: Optional[str] = None
+    track_player: Optional[str] = None
+    hidden: Optional[str] = None
+    iteration: Optional[str] = None
+    artist_uri: Optional[str] = None
+    image_url: Optional[str] = None
+    image_xlarge_url: Optional[str] = None
+    image_large_url: Optional[str] = None
+    image_small_url: Optional[str] = None
+    album_title: Optional[str] = None
+    album_uri: Optional[str] = None
+
+    media: Dict[str, str] = None
     decision_id: Optional[str] = None
+    collection: Dict[str, str] = None
 
     @classmethod
     def from_dict(cls, data):
@@ -48,10 +52,18 @@ class SpotifyTrackMetadata:
             "media_start_position": data.pop("media.start_position", None),
         }
 
+        collection = {
+            "artist": {
+                "is_banned": data.pop("collection.artist.is_banned", None),
+            },
+            "is_banned": data.pop("collection.is_banned", None),
+        }
+
         return cls(
             actions=actions,
             autoplay=autoplay,
             media=media,
+            collection=collection,
             **data,
         )
 
@@ -91,68 +103,11 @@ class SpotifyPlayerStateOptions:
 
 
 @dataclass
-class SpotifyPlayerStatePartialTrackMetadata:
-
-    page_instance_id: str
-    actions: Dict[str, str]
-    interaction_id: str
-    autoplay: Dict[str, str]
-
-    context_uri: Optional[str] = None
-    entity_uri: Optional[str] = None
-    track_player: Optional[str] = None
-    hidden: Optional[str] = None
-    iteration: Optional[str] = None
-    artist_uri: Optional[str] = None
-    image_url: Optional[str] = None
-    image_xlarge_url: Optional[str] = None
-    image_large_url: Optional[str] = None
-    image_small_url: Optional[str] = None
-    album_title: Optional[str] = None
-    album_uri: Optional[str] = None
-
-    media: Dict[str, str] = None
-    decision_id: Optional[str] = None
-
-    @classmethod
-    def from_dict(cls, data):
-
-        if not data:
-            return None
-
-        actions = {
-            "advancing_past_track": data.pop("actions.advancing_past_track", None),
-            "skipping_next_past_track": data.pop(
-                "actions.skipping_next_past_track", None
-            ),
-            "skipping_prev_past_track": data.pop(
-                "actions.skipping_prev_past_track", None
-            ),
-        }
-
-        autoplay = {
-            "is_autoplay": data.pop("autoplay.is_autoplay", None),
-        }
-
-        media = {
-            "media_type": data.pop("media.media_type", None),
-            "media_start_position": data.pop("media.start_position", None),
-        }
-
-        return cls(
-            actions=actions,
-            autoplay=autoplay,
-            media=media,
-            **data,
-        )
-
-
-@dataclass
 class SpotifyPlayerStatePartialTrack:
 
     uri: str
     uid: str
-    metadata: SpotifyPlayerStatePartialTrackMetadata
+    metadata: SpotifyTrackMetadata
     provider: str
     removed: Optional[List[str]] = None
     blocked: Optional[str] = None
@@ -163,9 +118,7 @@ class SpotifyPlayerStatePartialTrack:
             return None
 
         return cls(
-            metadata=SpotifyPlayerStatePartialTrackMetadata.from_dict(
-                data.pop("metadata", None)
-            ),
+            metadata=SpotifyTrackMetadata.from_dict(data.pop("metadata", None)),
             **data,
         )
 
@@ -243,7 +196,6 @@ class SpotifyPlayerState:
 class SpotifyConnectDevice:
 
     can_play: bool
-    volume: int
     name: str
     capabilities: Dict
     device_software_version: str
@@ -255,6 +207,7 @@ class SpotifyConnectDevice:
     public_ip: str
     license: str
 
+    volume: int = 0
     spirc_version: Optional[str] = None
     metadata_map: Optional[dict] = None
     deduplication_id: Optional[str] = None
