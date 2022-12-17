@@ -166,18 +166,49 @@ class SpotifyAPIControllerClient:
     async def seek(self, position: int, *args, **kwargs):
         return await self.set_seek(position, *args, **kwargs)
 
-    async def play(self, entity_uri: str, *args, **kwargs):
+    async def play(
+        self, entity_uri: str, skip_to_track_uri: str = None, *args, **kwargs
+    ):
+        # FOR LIKED SONGS, USE "spotify:user:...:collection"
+        # FOR YOUR EPISODES, USE "spotify:user:...:collection:your-episodes"
+
+        command = {
+            "endpoint": "play",
+            "context": {
+                "uri": entity_uri,
+                "url": f"context://{entity_uri}",
+            },
+        }
+
+        if skip_to_track_uri is not None:
+            command.update(
+                {
+                    "options": {
+                        "skip_to": {
+                            "track_uri": skip_to_track_uri,
+                        }
+                    }
+                }
+            )
+
         return await self.connect_call(
             "POST",
             f"/player/command",
+            json={"command": command},
+            *args,
+            **kwargs,
+        )
+
+    async def transfer_across_device(
+        self, to_device: str, restore_paused="restore", *args, **kwargs
+    ):
+        return await self.connect_call(
+            "POST",
+            f"/connect/transfer",
             json={
-                "command": {
-                    "endpoint": "play",
-                    "context": {
-                        "url": f"context://{entity_uri}",
-                    },
-                }
+                "transfer_options": {"restore_paused": restore_paused},
             },
+            to_device=to_device,
             *args,
             **kwargs,
         )
