@@ -19,11 +19,10 @@ Notably, we can recieve the following information **as soon as it changes** with
     - IP address
     - Name specifications
 
+
+Similarly, you can control your Spotify session from this websocket. You can pause, play, skip, and even change the volume of your Spotify session.
+
 > **Note:** Use `spotipy` or its async counterpart to query entities.
-
-## Can I change the data?
-
-This client does not send HTTP requests to the Spotify API as of right now. However, this is a planned feature. **This client will support playback controls even on non-premium accounts in the future by using Spotify client methods.**
 
 ## Can I download from Spotify via this?
 
