@@ -33,5 +33,5 @@ def retain_nulled_values(old_dataclass, new_dataclass):
         if new_value is None:
             setattr(new_dataclass, field, old_value)
         else:
-            if is_dataclass(new_value):
+            if is_dataclass(new_value) and is_dataclass(old_value):
                 retain_nulled_values(old_value, new_value)

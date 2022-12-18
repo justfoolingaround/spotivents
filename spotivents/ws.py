@@ -27,11 +27,28 @@ async def ws_connect(
                 "device": {
                     "device_info": {
                         "capabilities": {
-                            "can_be_player": False,
-                            "hidden": True,
+                            "can_be_player": True,
+                            "gaia_eq_connect_id": True,
+                            "supports_logout": True,
+                            "is_observable": True,
+                            "supported_types": [
+                                "audio/track",
+                                "audio/episode",
+                                "video/episode",
+                                "mixed/episode",
+                            ],
+                            "command_acks": True,
+                            "is_controllable": True,
+                            "supports_external_episodes": True,
+                            "supports_command_request": True,
+                            "supports_set_options_command": True,
+                            "supports_hifi": {
+                                "device_supported": True,
+                            },
                             "needs_full_player_state": True,
+                            "hidden": True,
                         }
-                    }
+                    },
                 },
             },
         ) as response:

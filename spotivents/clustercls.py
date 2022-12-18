@@ -5,13 +5,12 @@ from typing import Dict, List, Optional
 @dataclass
 class SpotifyTrackMetadata:
 
-    page_instance_id: str
     actions: Dict[str, str]
-    interaction_id: str
     autoplay: Dict[str, str]
 
     context_uri: Optional[str] = None
     entity_uri: Optional[str] = None
+    page_instance_id: Optional[str] = None
     track_player: Optional[str] = None
     hidden: Optional[str] = None
     iteration: Optional[str] = None
@@ -22,10 +21,14 @@ class SpotifyTrackMetadata:
     image_small_url: Optional[str] = None
     album_title: Optional[str] = None
     album_uri: Optional[str] = None
+    provider: Optional[str] = None
 
     media: Dict[str, str] = None
     decision_id: Optional[str] = None
     collection: Dict[str, str] = None
+    interaction_id: Optional[str] = None
+    shuffle: Dict[str, str] = None
+    added_by_user: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data):
@@ -59,11 +62,16 @@ class SpotifyTrackMetadata:
             "is_banned": data.pop("collection.is_banned", None),
         }
 
+        shuffle = {
+            "distribution": data.pop("shuffle.distribution", None),
+        }
+
         return cls(
             actions=actions,
             autoplay=autoplay,
             media=media,
             collection=collection,
+            shuffle=shuffle,
             **data,
         )
 
@@ -142,23 +150,18 @@ class SpotifyPlaybackQuality:
 @dataclass
 class SpotifyPlayerState:
 
-    timestamp: str
-    context_uri: str
     context_url: str
     context_restrictions: Dict
     play_origin: Dict
     track: Optional[SpotifyTrack]
-    playback_id: str
     playback_speed: float
     position_as_of_timestamp: str
-    duration: str
     is_playing: bool
     is_paused: bool
     is_system_initiated: bool
     options: Optional[SpotifyPlayerStateOptions]
     restrictions: Dict
     suppressions: Dict
-    context_metadata: Dict
     page_metadata: Dict
     session_id: str
     queue_revision: str
@@ -168,6 +171,12 @@ class SpotifyPlayerState:
     next_tracks: Optional[List[SpotifyPlayerStatePartialTrack]] = None
     prev_tracks: Optional[List[SpotifyPlayerStatePartialTrack]] = None
     is_buffering: Optional[bool] = False
+    timestamp: Optional[str] = None
+    audio_stream: Optional[str] = None
+    playback_id: Optional[str] = None
+    duration: Optional[str] = None
+    context_uri: Optional[str] = None
+    context_metadata: Optional[Dict] = None
 
     @classmethod
     def from_dict(cls, data):
@@ -195,22 +204,24 @@ class SpotifyPlayerState:
 @dataclass
 class SpotifyConnectDevice:
 
-    can_play: bool
-    name: str
     capabilities: Dict
-    device_software_version: str
     device_type: str
     device_id: str
-    client_id: str
-    brand: str
-    model: str
-    public_ip: str
-    license: str
+    can_play: bool = False
+
+    name: Optional[str] = None
+    device_software_version: Optional[str] = None
+    client_id: Optional[str] = None
+    brand: Optional[str] = None
+    model: Optional[str] = None
+    license: Optional[str] = None
 
     volume: int = 0
     spirc_version: Optional[str] = None
     metadata_map: Optional[dict] = None
     deduplication_id: Optional[str] = None
+    is_private_session: bool = False
+    public_ip: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data):
@@ -226,11 +237,12 @@ class SpotifyDeviceStateChangeCluster:
     timestamp: str
     player_state: SpotifyPlayerState
     devices: Dict[str, SpotifyConnectDevice]
-    active_device_id: str
-    transfer_data_timestamp: str
     need_full_player_state: bool
     server_timestamp_ms: str
+
     not_playing_since_timestamp: Optional[str] = None
+    transfer_data_timestamp: Optional[str] = None
+    active_device_id: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data):
@@ -241,7 +253,6 @@ class SpotifyDeviceStateChangeCluster:
             device_id: SpotifyConnectDevice.from_dict(device)
             for device_id, device in data.pop("devices", {}).items()
         }
-        devices.update(active=devices[data["active_device_id"]])
 
         return cls(
             player_state=SpotifyPlayerState.from_dict(data.pop("player_state", None)),
@@ -256,7 +267,12 @@ def iter_handled_payloads(
     for payload in payloads:
         shallow_payload = payload.copy()
 
-        if shallow_payload.get("update_reason") == "DEVICE_STATE_CHANGED":
+        if shallow_payload.get("update_reason") in (
+            "DEVICE_STATE_CHANGED",
+            "DEVICE_VOLUME_CHANGED",
+            "DEVICES_DISAPPEARED",
+            "DEVICE_NEW_CONNECTION",
+        ):
             cluster = shallow_payload.pop("cluster", None)
             yield {
                 "cluster": SpotifyDeviceStateChangeCluster.from_dict(cluster),
