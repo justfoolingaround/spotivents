@@ -13,6 +13,8 @@ from .utils import (
 )
 from .ws import ws_connect
 
+forgivable_errors = (AttributeError, KeyError, TypeError)
+
 
 class SpotifyClient:
     def __init__(
@@ -109,23 +111,28 @@ class SpotifyClient:
             for callback in self.cluster_ready_callbacks:
                 self.loop.create_task(callback(cluster))
 
-        for cluster_string, handlers in self.cluster_change_handlers.items():
+        for cluster_getter, handlers in self.cluster_change_handlers.items():
 
-            old_value = get_from_cluster_string(old_cluster, cluster_string)
-            new_value = get_from_cluster_string(cluster, cluster_string)
-
-            if new_value is None:
-                set_from_cluster_string(self.cluster, cluster_string, old_value)
+            if hasattr(cluster_getter, "__call__"):
+                try:
+                    old_value = cluster_getter(old_cluster)
+                except forgivable_errors as _:
+                    old_value = None
+                try:
+                    new_value = cluster_getter(cluster)
+                except forgivable_errors as _:
+                    new_value = None
             else:
-                if old_value != new_value:
-                    for handler in handlers:
-                        self.loop.create_task(
-                            handler(self.cluster, old_value, new_value)
-                        )
+                old_value = get_from_cluster_string(old_cluster, cluster_getter)
+                new_value = get_from_cluster_string(cluster, cluster_getter)
+
+            if old_value != new_value:
+                for handler in handlers:
+                    self.loop.create_task(handler(self.cluster, old_value, new_value))
 
         retain_nulled_values(old_cluster, cluster)
 
-    def on_cluster_change(self, cluster_string: str):
+    def on_cluster_change(self, cluster_getter):
         def inner(func):
 
             if not asyncio.iscoroutinefunction(func):
@@ -134,9 +141,17 @@ class SpotifyClient:
             async def wrapper(*args, **kwargs):
                 await func(*args, **kwargs)
 
-            self.cluster_change_handlers[tuple(cluster_string.split("."))].append(
-                wrapper
-            )
+            if isinstance(cluster_getter, str):
+
+                self.cluster_change_handlers[tuple(cluster_getter.split("."))].append(
+                    wrapper
+                )
+            else:
+                if hasattr(cluster_getter, "__call__"):
+                    self.cluster_change_handlers[cluster_getter].append(wrapper)
+                else:
+                    raise TypeError("cluster_getter must be a string or a function")
+
             return wrapper
 
         return inner
