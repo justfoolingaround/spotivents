@@ -26,12 +26,15 @@ def set_from_cluster_string(cluster: str, attributes: frozenset, value: str):
 
 def retain_nulled_values(old_dataclass, new_dataclass):
 
+    if not is_dataclass(old_dataclass):
+        return
+
     for field in old_dataclass.__dataclass_fields__:
         old_value = getattr(old_dataclass, field)
         new_value = getattr(new_dataclass, field, None)
 
-        if new_value is None:
+        if new_value is None and old_value is not None:
             setattr(new_dataclass, field, old_value)
         else:
-            if is_dataclass(new_value) and is_dataclass(old_value):
+            if is_dataclass(new_value):
                 retain_nulled_values(old_value, new_value)

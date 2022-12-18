@@ -98,20 +98,20 @@ class SpotifyClient:
 
     async def cluster_change_handler(self, cluster):
 
+        old_cluster = self.cluster
+        self.cluster = cluster
+
         for callback in self.cluster_load_callbacks:
             self.loop.create_task(callback(cluster))
 
-        if self.cluster is None:
+        if old_cluster is None:
 
             for callback in self.cluster_ready_callbacks:
                 self.loop.create_task(callback(cluster))
 
-            self.cluster = cluster
-            return
-
         for cluster_string, handlers in self.cluster_change_handlers.items():
 
-            old_value = get_from_cluster_string(self.cluster, cluster_string)
+            old_value = get_from_cluster_string(old_cluster, cluster_string)
             new_value = get_from_cluster_string(cluster, cluster_string)
 
             if new_value is None:
@@ -123,8 +123,7 @@ class SpotifyClient:
                             handler(self.cluster, old_value, new_value)
                         )
 
-        retain_nulled_values(self.cluster, cluster)
-        self.cluster = cluster
+        retain_nulled_values(old_cluster, cluster)
 
     def on_cluster_change(self, cluster_string: str):
         def inner(func):
