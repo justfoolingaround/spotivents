@@ -212,3 +212,23 @@ class SpotifyAPIControllerClient:
             *args,
             **kwargs,
         )
+
+    async def fetch_track_lyrics(self, track_uri: str, album_art=None, *args, **kwargs):
+
+        async with self.session.request(
+            "GET",
+            f"https://spclient.wg.{SPOTIFY_HOSTNAME}/color-lyrics/v2/track/{track_uri}"
+            + f"/image/{album_art}"
+            if album_art
+            else "",
+            headers={
+                "Authorization": f"Bearer {(await self.ws_client.bearer_token())['accessToken']}",
+                "app-platform": "WebPlayer",
+            },
+            params={
+                "format": "json",
+                "hasVocalRemoval": "false",
+            },
+        ) as response:
+            response.raise_for_status()
+            return await response.json()
