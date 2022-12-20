@@ -51,9 +51,6 @@ class SpotifyAPIControllerClient:
             f"https://gae-spclient.{SPOTIFY_HOSTNAME}/connect-state/v1" + url + suffix,
             headers={
                 "Authorization": f"Bearer {bearer_token['accessToken']}",
-                "client-token": (await self.ws_client.client_token())["granted_token"][
-                    "token"
-                ],
             },
             *args,
             **kwargs,
@@ -213,22 +210,51 @@ class SpotifyAPIControllerClient:
             **kwargs,
         )
 
-    async def fetch_track_lyrics(self, track_uri: str, album_art=None, *args, **kwargs):
+    async def fetch_track_lyrics(self, track_id: str, album_art=None, *args, **kwargs):
 
         async with self.session.request(
             "GET",
-            f"https://spclient.wg.{SPOTIFY_HOSTNAME}/color-lyrics/v2/track/{track_uri}"
-            + f"/image/{album_art}"
-            if album_art
-            else "",
+            f"https://spclient.wg.{SPOTIFY_HOSTNAME}/color-lyrics/v2/track/{track_id}"
+            + (f"/image/{album_art}" if album_art else ""),
             headers={
                 "Authorization": f"Bearer {(await self.ws_client.bearer_token())['accessToken']}",
                 "app-platform": "WebPlayer",
             },
             params={
                 "format": "json",
-                "hasVocalRemoval": "false",
+                "vocalRemoval": "false",
             },
         ) as response:
             response.raise_for_status()
             return await response.json()
+
+    async def add_track_to_queue(self, track_uri: str, *args, **kwargs):
+        return await self.connect_call(
+            "POST",
+            f"/player/command",
+            json={
+                "command": {
+                    "track": {
+                        "uri": track_uri,
+                    },
+                    "endpoint": "add_to_queue",
+                }
+            },
+            *args,
+            **kwargs,
+        )
+
+    async def add_tracks_to_queue(self, track_uris: list, *args, **kwargs):
+
+        return await self.connect_call(
+            "POST",
+            f"/player/command",
+            json={
+                "command": {
+                    "next_tracks": [{"uri": track_uri} for track_uri in track_uris],
+                    "endpoint": "set_queue",
+                }
+            },
+            *args,
+            **kwargs,
+        )

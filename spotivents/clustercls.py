@@ -29,6 +29,15 @@ class SpotifyTrackMetadata:
     interaction_id: Optional[str] = None
     shuffle: Dict[str, str] = None
     added_by_user: Optional[str] = None
+    added_by_username: Optional[str] = None
+
+    is_advertisement: Optional[str] = None
+
+    is_queued: Optional[str] = None
+    queued_by: Optional[str] = None
+
+    keep_skip_direction: Optional[str] = None
+    added_at: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data):
@@ -114,11 +123,11 @@ class SpotifyPlayerStateOptions:
 class SpotifyPlayerStatePartialTrack:
 
     uri: str
-    uid: str
     metadata: SpotifyTrackMetadata
     provider: str
     removed: Optional[List[str]] = None
     blocked: Optional[str] = None
+    uid: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data):
