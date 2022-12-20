@@ -243,6 +243,8 @@ class SpotifyConnectDevice:
 @dataclass
 class SpotifyDeviceStateChangeCluster:
 
+    type: str
+
     timestamp: str
     player_state: SpotifyPlayerState
     devices: Dict[str, SpotifyConnectDevice]
@@ -254,7 +256,7 @@ class SpotifyDeviceStateChangeCluster:
     active_device_id: Optional[str] = None
 
     @classmethod
-    def from_dict(cls, data):
+    def from_dict(cls, type, data):
         if not data:
             return None
 
@@ -264,6 +266,7 @@ class SpotifyDeviceStateChangeCluster:
         }
 
         return cls(
+            type=type,
             player_state=SpotifyPlayerState.from_dict(data.pop("player_state", None)),
             devices=devices,
             **data,
@@ -275,8 +278,9 @@ def iter_handled_payloads(
 ):
     for payload in payloads:
         shallow_payload = payload.copy()
+        update_reason = shallow_payload.get("update_reason", None)
 
-        if shallow_payload.get("update_reason") in (
+        if update_reason in (
             "DEVICE_STATE_CHANGED",
             "DEVICE_VOLUME_CHANGED",
             "DEVICES_DISAPPEARED",
@@ -284,7 +288,9 @@ def iter_handled_payloads(
         ):
             cluster = shallow_payload.pop("cluster", None)
             yield {
-                "cluster": SpotifyDeviceStateChangeCluster.from_dict(cluster),
+                "cluster": SpotifyDeviceStateChangeCluster.from_dict(
+                    update_reason, cluster
+                ),
                 **shallow_payload,
             }
         else:

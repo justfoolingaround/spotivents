@@ -1,23 +1,42 @@
+import logging
+
+import aiohttp
+
+from .auth import SpotifyAuthenticator
 from .constants import SPOTIFY_HOSTNAME
 
 
 class SpotifyAPIControllerClient:
-    def __init__(self, ws_client):
-        self.session = ws_client.session
-        self.ws_client = ws_client
+
+    logger = logging.getLogger("spotivents.controller")
+
+    def __init__(self, session, auth: SpotifyAuthenticator):
+        self.session = session
+        self.auth = auth
+
+        self.is_premium_client = True
 
     async def get_active_device_id(self):
 
-        if self.ws_client.cluster is not None:
-            return self.ws_client.cluster.active_device_id
+        self.logger.debug("Getting active device ID.")
+
+        if not self.is_premium_client:
+            return None
 
         async with self.session.get(
             f"https://api.{SPOTIFY_HOSTNAME}/v1/me/player/devices",
             headers={
-                "Authorization": f"Bearer {(await self.ws_client.bearer_token())['accessToken']}"
+                "Authorization": f"Bearer {(await self.auth.bearer_token())['accessToken']}"
             },
         ) as response:
-            response.raise_for_status()
+            try:
+                response.raise_for_status()
+            except aiohttp.ClientResponseError as err:
+
+                if err.code == 403:
+                    self.is_premium_client = False
+                    return None
+
             data = await response.json()
 
         for device in data["devices"]:
@@ -34,15 +53,11 @@ class SpotifyAPIControllerClient:
         *args,
         **kwargs,
     ):
-        bearer_token = await self.ws_client.bearer_token()
+        bearer_token = await self.auth.bearer_token()
 
         if include_from_to:
-            active_device = (
-                await self.get_active_device_id() or bearer_token["clientId"]
-            )
-            suffix = (
-                f"/from/{from_device or active_device}/to/{to_device or active_device}"
-            )
+            active_device = to_device or await self.get_active_device_id()
+            suffix = f"/from/{from_device or bearer_token['clientId']}/to/{active_device or bearer_token['clientId']}"
         else:
             suffix = ""
 
@@ -217,7 +232,7 @@ class SpotifyAPIControllerClient:
             f"https://spclient.wg.{SPOTIFY_HOSTNAME}/color-lyrics/v2/track/{track_id}"
             + (f"/image/{album_art}" if album_art else ""),
             headers={
-                "Authorization": f"Bearer {(await self.ws_client.bearer_token())['accessToken']}",
+                "Authorization": f"Bearer {(await self.auth.bearer_token())['accessToken']}",
                 "app-platform": "WebPlayer",
             },
             params={
