@@ -287,3 +287,6 @@ def iter_handled_payloads(
                 "cluster": SpotifyDeviceStateChangeCluster.from_dict(cluster),
                 **shallow_payload,
             }
+        else:
+            if shallow_payload.get("type") == "replace_state":
+                yield shallow_payload

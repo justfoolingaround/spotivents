@@ -35,6 +35,7 @@ class SpotifyClient:
         self.cluster: "SpotifyDeviceStateChangeCluster | None" = None
         self.cluster_load_callbacks = list()
         self.cluster_ready_callbacks = list()
+        self.replace_state_callbacks = list()
 
         self.raw_bearer_response = {}
         self.raw_client_token_response = {}
@@ -90,13 +91,17 @@ class SpotifyClient:
     async def event_handler(self, content):
 
         if content["type"] == "pong":
-            return print("Pong!")
+            return
 
         for payload in iter_handled_payloads(content["payloads"]):
-            cluster = payload["cluster"]
+            cluster = payload.get("cluster")
 
             if isinstance(cluster, SpotifyDeviceStateChangeCluster):
                 await self.cluster_change_handler(cluster)
+
+            if payload.get("type") == "replace_state":
+                for callback in self.replace_state_callbacks:
+                    self.loop.create_task(callback(payload))
 
     async def cluster_change_handler(self, cluster):
 
@@ -184,12 +189,27 @@ class SpotifyClient:
 
         return inner
 
+    def on_replace_state(self):
+        def inner(func):
+
+            if not asyncio.iscoroutinefunction(func):
+                raise TypeError("Event handler must be a coroutine function")
+
+            async def wrapper(cluster, old_value, new_value):
+                await func(cluster, old_value, new_value)
+
+            self.replace_state_callbacks.append(func)
+
+            return wrapper
+
+        return inner
+
     @classmethod
     async def create(cls, spotify_cookie, *, session=None):
         session = session or aiohttp.ClientSession()
         return cls(session, spotify_cookie)
 
-    async def run(self, *, is_blocking=True):
+    async def run(self, *, is_blocking=True, invisible=True):
 
         self.ws_task = self.loop.create_task(
             ws_connect(
@@ -197,6 +217,7 @@ class SpotifyClient:
                 (await self.bearer_token())["accessToken"],
                 (await self.bearer_token())["clientId"],
                 self.event_handler,
+                invisible=invisible,
             )
         )
 
