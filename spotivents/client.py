@@ -211,6 +211,15 @@ class SpotifyClient:
 
     async def run(self, *, is_blocking=True, invisible=True):
 
+        cluster_future = asyncio.Future()
+        cluster_future.add_done_callback(
+            lambda future: self.loop.create_task(
+                self.cluster_change_handler(
+                    SpotifyDeviceStateChangeCluster.from_dict(future.result())
+                )
+            )
+        )
+
         self.ws_task = self.loop.create_task(
             ws_connect(
                 self.session,
@@ -218,6 +227,7 @@ class SpotifyClient:
                 (await self.bearer_token())["clientId"],
                 self.event_handler,
                 invisible=invisible,
+                cluster_future=cluster_future,
             )
         )
 

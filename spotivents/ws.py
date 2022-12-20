@@ -1,5 +1,10 @@
 import asyncio
 
+try:
+    import orjson as json
+except ImportError:
+    import json
+
 import aiohttp
 
 from .constants import EVENT_DEALER_WS, SPCLIENT_ENDPOINT
@@ -72,6 +77,7 @@ async def ws_connect(
     device_id: str,
     event_handler,
     invisible=True,
+    cluster_future=None,
 ):
 
     async with session.ws_connect(
@@ -108,6 +114,8 @@ async def ws_connect(
             json=WS_CONNECT_STATE_PAYLOAD,
         ) as response:
             response.raise_for_status()
+            if cluster_future:
+                cluster_future.set_result(json.loads(await response.text()))
 
         event_loop = asyncio.get_event_loop()
 
