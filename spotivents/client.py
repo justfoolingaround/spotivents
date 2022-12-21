@@ -149,6 +149,3 @@ class SpotifyClient:
 
         if is_blocking:
             await self.ws_task
-
-    # TODO: Add entity querying [playlists, albums, artists, tracks]
-    # TODO: Add player cluster querying

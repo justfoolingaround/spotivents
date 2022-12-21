@@ -1,9 +1,11 @@
 import logging
+from binascii import hexlify, unhexlify
 
 import aiohttp
 
 from .auth import SpotifyAuthenticator
 from .constants import SPOTIFY_HOSTNAME
+from .utils import decode_basex_to_bytes, encode_bytes_to_basex
 
 
 class SpotifyAPIControllerClient:
@@ -273,3 +275,38 @@ class SpotifyAPIControllerClient:
             *args,
             **kwargs,
         )
+
+    @staticmethod
+    def convert_spotify_id_to_hex(spotify_id: str) -> str:
+        return hexlify(decode_basex_to_bytes(spotify_id)).decode()
+
+    @staticmethod
+    def convert_hex_to_spotify_id(hex_id: str) -> str:
+        return encode_bytes_to_basex(unhexlify(hex_id))
+
+    async def query_entity_metadata(
+        self, entity_id: str, entity_type: str, *args, **kwargs
+    ):
+
+        assert entity_type in (
+            "track",
+            "album",
+            "artist",
+            "playlist",
+            "show",
+            "episode",
+        )
+
+        hex_id = self.convert_spotify_id_to_hex(entity_id)
+
+        async with self.session.get(
+            f"https://gae-spclient.{SPOTIFY_HOSTNAME}/metadata/4/{entity_type}/{hex_id}",
+            headers={
+                "Authorization": f"Bearer {(await self.auth.bearer_token())['accessToken']}",
+                "Accept": "application/json",
+            },
+            *args,
+            **kwargs,
+        ) as response:
+            response.raise_for_status()
+            return await response.json()

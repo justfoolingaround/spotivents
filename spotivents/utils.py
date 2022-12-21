@@ -55,3 +55,41 @@ def get_from_cluster_getter(
             return None
     else:
         return get_from_cluster_string(cluster, cluster_getter.split("."))
+
+
+B62_CHARSET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+B62_INVERTED_CHARSET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
+def decode_basex_to_bytes(value: str, charset=B62_INVERTED_CHARSET):
+    base = len(charset)
+
+    decoded = 0
+    for str_at in value:
+        decoded = (decoded * base) + charset.index(str_at)
+
+    buf = bytearray()
+
+    while decoded > 0:
+        buf.append(decoded & 0xFF)
+        decoded >>= 8
+    buf.reverse()
+
+    return bytes(buf)
+
+
+def encode_bytes_to_basex(
+    value: bytes,
+    charset=B62_INVERTED_CHARSET,
+):
+    base = len(charset)
+
+    encoded = 0
+    for b in value:
+        encoded = (encoded << 8) | b
+
+    result = ""
+    while encoded > 0:
+        result += charset[encoded % base]
+        encoded //= base
+    return result[::-1]
