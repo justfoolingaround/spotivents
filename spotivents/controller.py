@@ -16,14 +16,9 @@ class SpotifyAPIControllerClient:
         self.session = session
         self.auth = auth
 
-        self.is_premium_client = True
-
     async def get_active_device_id(self):
 
         self.logger.debug("Getting active device ID.")
-
-        if not self.is_premium_client:
-            return None
 
         async with self.session.get(
             f"https://api.{SPOTIFY_HOSTNAME}/v1/me/player/devices",
@@ -31,14 +26,7 @@ class SpotifyAPIControllerClient:
                 "Authorization": f"Bearer {(await self.auth.bearer_token())['accessToken']}"
             },
         ) as response:
-            try:
-                response.raise_for_status()
-            except aiohttp.ClientResponseError as err:
-
-                if err.code == 403:
-                    self.is_premium_client = False
-                    return None
-
+            response.raise_for_status()
             data = await response.json()
 
         for device in data["devices"]:

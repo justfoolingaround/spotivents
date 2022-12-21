@@ -54,8 +54,6 @@ The controller needs to be initalised with a session and the authentication clas
 
 > **Warning**: Controller is practically a dumb remote. This means that it does not take in account for the what is going on with the playback. The API will return an error reply when the controller tries to resume an already playing track.
 
-> **Warning**: This example **will not** work with non-Premium accounts as there is no way of obtaining the active device without using a Premium endpoint. Pairing the controller with the websocket will be able to get you an `active_device_id` to use with the controller.
-
 To make the controller better and an absolutely great tool, you should use it with the Spotivents websocket client.
 
 ### Getting real-time events and using the controller
