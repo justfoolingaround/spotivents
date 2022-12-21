@@ -20,7 +20,7 @@ class SpotifyClient:
         auth: "SpotifyAuthenticator",
     ):
 
-        self.loop = asyncio.get_running_loop()
+        self.loop = asyncio.get_event_loop()
         self.auth = auth
         self.session = session
         self.ws_task = None
