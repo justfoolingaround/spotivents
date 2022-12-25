@@ -11,10 +11,31 @@ from .utils import decode_basex_to_bytes, encode_bytes_to_basex
 class SpotifyAPIControllerClient:
 
     logger = logging.getLogger("spotivents.controller")
+    entity_types = (
+        "track",
+        "album",
+        "artist",
+        "playlist",
+        "show",
+        "episode",
+    )
 
     def __init__(self, session, auth: SpotifyAuthenticator):
         self.session = session
         self.auth = auth
+
+    async def get_headers(self, json=False, platform=None):
+
+        headers = {
+            "Authorization": f"Bearer {(await self.auth.bearer_token())['accessToken']}"
+        }
+        if json:
+            headers["Content-Type"] = "application/json"
+
+        if platform is not None:
+            headers["app-platform"] = platform
+
+        return headers
 
     async def get_active_device_id(self):
 
@@ -22,9 +43,7 @@ class SpotifyAPIControllerClient:
 
         async with self.session.get(
             f"https://api.{SPOTIFY_HOSTNAME}/v1/me/player/devices",
-            headers={
-                "Authorization": f"Bearer {(await self.auth.bearer_token())['accessToken']}"
-            },
+            headers=await self.get_headers(),
         ) as response:
             response.raise_for_status()
             data = await response.json()
@@ -221,10 +240,7 @@ class SpotifyAPIControllerClient:
             "GET",
             f"https://spclient.wg.{SPOTIFY_HOSTNAME}/color-lyrics/v2/track/{track_id}"
             + (f"/image/{album_art}" if album_art else ""),
-            headers={
-                "Authorization": f"Bearer {(await self.auth.bearer_token())['accessToken']}",
-                "app-platform": "WebPlayer",
-            },
+            headers=await self.get_headers(platform="WebPlayer"),
             params={
                 "format": "json",
                 "vocalRemoval": "false",
@@ -276,25 +292,51 @@ class SpotifyAPIControllerClient:
         self, entity_id: str, entity_type: str, *args, **kwargs
     ):
 
-        assert entity_type in (
-            "track",
-            "album",
-            "artist",
-            "playlist",
-            "show",
-            "episode",
-        )
+        assert entity_type in self.entity_types
 
         hex_id = self.convert_spotify_id_to_hex(entity_id)
 
         async with self.session.get(
             f"https://gae-spclient.{SPOTIFY_HOSTNAME}/metadata/4/{entity_type}/{hex_id}",
-            headers={
-                "Authorization": f"Bearer {(await self.auth.bearer_token())['accessToken']}",
-                "Accept": "application/json",
-            },
+            headers=await self.get_headers(json=True),
             *args,
             **kwargs,
         ) as response:
             response.raise_for_status()
             return await response.json()
+
+    async def determine_entity_type(self, id: str) -> str:
+
+        for entity_type in self.entity_types:
+            async with self.session.head(
+                f"https://open.spotify.com/embed/{entity_type}/{id}",
+            ) as response:
+                if response.status == 200:
+                    return entity_type
+
+        raise ValueError("Invalid entity id: %s", id)
+
+    async def presence_view_call(
+        self,
+        method: str,
+        endpoint: str,
+        *args,
+        **kwargs,
+    ):
+        async with self.session.request(
+            method,
+            f"https://spclient.wg.{SPOTIFY_HOSTNAME}/presence-view/v1{endpoint}",
+            headers=await self.get_headers(),
+            *args,
+            **kwargs,
+        ) as response:
+            response.raise_for_status()
+            return await response.json()
+
+    async def get_buddies(self, *args, **kwargs):
+        return await self.presence_view_call("GET", "/buddylist", *args, **kwargs)
+
+    async def get_buddy_presence(self, user_id: str, *args, **kwargs):
+        return await self.presence_view_call(
+            "GET", f"/user/{user_id}", *args, **kwargs
+        )
