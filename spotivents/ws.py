@@ -91,7 +91,7 @@ async def ws_connect(
 ):
 
     async with session.ws_connect(
-        EVENT_DEALER_WS, params={"access_token": access_token}, heartbeat=30
+        EVENT_DEALER_WS, params={"access_token": access_token}
     ) as ws:
 
         connection_state = await ws.receive_json()

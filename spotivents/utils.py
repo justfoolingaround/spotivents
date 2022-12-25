@@ -1,3 +1,4 @@
+import webbrowser
 from dataclasses import is_dataclass
 
 forgivable_errors = (AttributeError, KeyError, TypeError)
@@ -93,3 +94,30 @@ def encode_bytes_to_basex(
         result += charset[encoded % base]
         encoded //= base
     return result[::-1]
+
+
+def get_mosaic_image_url(
+    image_top_left_id,
+    image_top_right_id,
+    image_bottom_left_id,
+    image_bottom_right_id,
+    size=640,
+):
+    assert size in (640, 300), "Mosaic image size must be 640 or 300"
+    return (
+        "https://mosaic.scdn.co/"
+        f"{size}/{image_top_left_id}{image_top_right_id}{image_bottom_left_id}{image_bottom_right_id}"
+    )
+
+
+def run_spotify_protocol(
+    content_id: str,
+    content_type: str,
+    autoraise: bool = False,
+):
+    """
+    Opens up a closed Spotify client.
+    """
+    return webbrowser.open(
+        f"spotify://spotify:{content_type}:{content_id}", autoraise=autoraise
+    )
