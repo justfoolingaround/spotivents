@@ -1,7 +1,14 @@
 import logging
+import re
 import time
 
 from .constants import SPOTIFY_HOSTNAME
+from .optopt import json
+
+ACCESS_TOKEN_REGEX = re.compile(
+    r"<script id=\"session\" data-testid=\"session\" type=\"application/json\">\s*(.+?)\s*</script>",
+    re.MULTILINE | re.DOTALL,
+)
 
 
 class SpotifyAuthenticator:
@@ -16,12 +23,31 @@ class SpotifyAuthenticator:
         self.raw_client_token_response = {}
 
     @staticmethod
+    async def get_access_token_from_cookie_from_web(session, spotify_cookie):
+        async with session.get(
+            f"https://open.{SPOTIFY_HOSTNAME}/",
+            headers={"Cookie": f"sp_dc={spotify_cookie}"},
+        ) as response:
+            content = await response.text()
+
+        return json.loads(ACCESS_TOKEN_REGEX.search(content).group(1))
+
+    @staticmethod
     async def get_access_token_from_cookie(session, spotify_cookie):
 
         async with session.get(
             f"https://open.{SPOTIFY_HOSTNAME}/get_access_token",
+            params={
+                "reason": "transport",
+                "productType": "web-player",
+            },
             headers={"Cookie": f"sp_dc={spotify_cookie}"},
         ) as response:
+
+            if response.status >= 400:
+                return await SpotifyAuthenticator.get_access_token_from_cookie_from_web(
+                    session, spotify_cookie
+                )
             return await response.json()
 
     async def bearer_token(self):

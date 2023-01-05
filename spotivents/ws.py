@@ -1,14 +1,10 @@
 import asyncio
 import threading
 
-try:
-    import orjson as json
-except ImportError:
-    import json
-
 import aiohttp
 
 from .constants import EVENT_DEALER_WS, SPCLIENT_ENDPOINT
+from .optopt import json
 
 WS_CONNECT_STATE_PAYLOAD = {
     "member_type": "CONNECT_STATE",
@@ -83,12 +79,14 @@ async def websocket_heartbeat(ws: aiohttp.ClientWebSocketResponse, interval=30):
 
 async def ws_connect(
     session: aiohttp.ClientSession,
-    access_token: str,
-    device_id: str,
+    auth,
     event_handler,
     invisible=True,
     cluster_future=None,
 ):
+
+    access_token = (await auth.bearer_token())["accessToken"]
+    device_id = (await auth.bearer_token())["clientId"]
 
     async with session.ws_connect(
         EVENT_DEALER_WS, params={"access_token": access_token}
@@ -128,7 +126,7 @@ async def ws_connect(
                 cluster_future.set_result(json.loads(await response.text()))
 
         event_loop = asyncio.get_event_loop()
-        event_loop.create_task(websocket_heartbeat(ws, interval=30))
+        event_loop.create_task(websocket_heartbeat(ws, interval=15))
 
         async for msg in ws:
             _ = event_loop.create_task(event_handler(msg.json()))

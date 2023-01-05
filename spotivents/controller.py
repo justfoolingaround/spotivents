@@ -1,10 +1,9 @@
 import logging
 from binascii import hexlify, unhexlify
 
-import aiohttp
-
 from .auth import SpotifyAuthenticator
 from .constants import SPOTIFY_HOSTNAME
+from .optopt import json
 from .utils import decode_basex_to_bytes, encode_bytes_to_basex
 
 
@@ -30,7 +29,7 @@ class SpotifyAPIControllerClient:
             "Authorization": f"Bearer {(await self.auth.bearer_token())['accessToken']}"
         }
         if json:
-            headers["Content-Type"] = "application/json"
+            headers["Accept"] = "application/json"
 
         if platform is not None:
             headers["app-platform"] = platform
@@ -42,15 +41,13 @@ class SpotifyAPIControllerClient:
         self.logger.debug("Getting active device ID.")
 
         async with self.session.get(
-            f"https://api.{SPOTIFY_HOSTNAME}/v1/me/player/devices",
+            f"https://api.{SPOTIFY_HOSTNAME}/v1/me/player",
             headers=await self.get_headers(),
         ) as response:
             response.raise_for_status()
             data = await response.json()
 
-        for device in data["devices"]:
-            if device["is_active"]:
-                return device["id"]
+        return data.get("device", {}).get("id")
 
     async def connect_call(
         self,
@@ -266,13 +263,13 @@ class SpotifyAPIControllerClient:
         )
 
     async def add_tracks_to_queue(self, track_uris: list, *args, **kwargs):
-
+        next_tracks = [{"uri": track_uri} for track_uri in track_uris]
         return await self.connect_call(
             "POST",
             f"/player/command",
             json={
                 "command": {
-                    "next_tracks": [{"uri": track_uri} for track_uri in track_uris],
+                    "next_tracks": next_tracks,
                     "endpoint": "set_queue",
                 }
             },
@@ -314,7 +311,7 @@ class SpotifyAPIControllerClient:
                 if response.status == 200:
                     return entity_type
 
-        raise ValueError("Invalid entity id: %s", id)
+        raise ValueError(f"Invalid entity id: {id}")
 
     async def presence_view_call(
         self,
@@ -337,6 +334,94 @@ class SpotifyAPIControllerClient:
         return await self.presence_view_call("GET", "/buddylist", *args, **kwargs)
 
     async def get_buddy_presence(self, user_id: str, *args, **kwargs):
-        return await self.presence_view_call(
-            "GET", f"/user/{user_id}", *args, **kwargs
-        )
+        return await self.presence_view_call("GET", f"/user/{user_id}", *args, **kwargs)
+
+    async def fetch_playlist_extension(
+        self,
+        playlist_id: str,
+        track_ids: list = None,
+        artist_ids: list = None,
+        track_skip_ids: list = None,
+        playlist_skip_ids: list = None,
+        artist_skip_ids: list = None,
+        num_results: int = 50,
+        condensed: bool = False,
+        decoration: bool = False,
+        family: str = "all",
+        family_list: list = ["all"],
+        *args,
+        **kwargs,
+    ):
+
+        async with self.session.post(
+            f"https://spclient.wg.{SPOTIFY_HOSTNAME}/playlistextender/extendp/",
+            headers=await self.get_headers(),
+            json={
+                "playlistURI": f"spotify:playlist:{playlist_id}",
+                "trackIDs": track_ids,
+                "artistIDs": artist_ids,
+                "trackSkipIDs": track_skip_ids,
+                "playlistSkipIDs": playlist_skip_ids,
+                "artistSkipIDs": artist_skip_ids,
+                "numResults": num_results,
+                "condensed": condensed,
+                "decoration": decoration,
+                "family": family,
+                "familyList": family_list,
+            },
+            *args,
+            **kwargs,
+        ) as response:
+            response.raise_for_status()
+            return json.loads(await response.text())
+
+    async def fetch_user(
+        self,
+        user_id: str,
+        playlist_limit: int = 10,
+        artist_limit: int = 10,
+        episode_limit: int = 10,
+        market: str = "from_token",
+        *args,
+        **kwargs,
+    ):
+        async with self.session.get(
+            f"https://spclient.wg.{SPOTIFY_HOSTNAME}/user-profile-view/v3/profile/{user_id}",
+            headers=await self.get_headers(),
+            params={
+                "playlist_limit": playlist_limit,
+                "artist_limit": artist_limit,
+                "episode_limit": episode_limit,
+                "market": market,
+            },
+            *args,
+            **kwargs,
+        ) as response:
+            response.raise_for_status()
+            return await response.json()
+
+    async def fetch_user_follow(
+        self,
+        user_id: str,
+        follow_type: str = "following",
+        *args,
+        **kwargs,
+    ):
+        assert follow_type in ["following", "followers"]
+
+        async with self.session.get(
+            f"https://spclient.wg.{SPOTIFY_HOSTNAME}/user-profile-view/v3/profile/{user_id}/{follow_type}",
+            headers=await self.get_headers(),
+            *args,
+            **kwargs,
+        ) as response:
+            response.raise_for_status()
+            return await response.json()
+
+    async def skip_advertisement(self):
+        current_device = await self.get_active_device_id()
+
+        await self.transfer_across_device((await self.auth.bearer_token())["clientId"])
+        await self.transfer_across_device(current_device)
+
+        return await self.resume()

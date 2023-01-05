@@ -39,6 +39,11 @@ class SpotifyClient:
         if content["type"] == "pong":
             return
 
+        if {_.lower(): __ for _, __ in content.get("headers", {}).items()}.get(
+            "content-type"
+        ) != "application/json":
+            return print(content)
+
         for payload in iter_handled_payloads(content["payloads"]):
             cluster = payload.get("cluster")
 
@@ -75,19 +80,23 @@ class SpotifyClient:
 
         retain_nulled_values(old_cluster, cluster)
 
-    def on_cluster_change(self, cluster_getter):
+    def on_cluster_change(self, *cluster_getters):
 
-        if not isinstance(cluster_getter, str) and not hasattr(
-            cluster_getter, "__call__"
-        ):
-            raise TypeError("cluster_getter must be a string or a function")
+        for cluster_getter in cluster_getters:
+            if not isinstance(cluster_getter, str) and not hasattr(
+                cluster_getter, "__call__"
+            ):
+                raise TypeError("cluster_getter must be a string or a function")
 
         return SpotifyClient.event_handler_wrapper(
-            self.cluster_change_handlers[cluster_getter]
+            *(
+                self.cluster_change_handlers[cluster_getter]
+                for cluster_getter in cluster_getters
+            )
         )
 
     @staticmethod
-    def event_handler_wrapper(mutable_callbacks):
+    def event_handler_wrapper(*mutable_callbacks):
         def inner(func):
             if not asyncio.iscoroutinefunction(func):
                 raise TypeError("Event handler must be a coroutine function")
@@ -98,7 +107,8 @@ class SpotifyClient:
             SpotifyClient.logger.debug(
                 f"Registered event handler: {func!r} onto {mutable_callbacks!r}"
             )
-            mutable_callbacks.append(func)
+            for mutable_callback in mutable_callbacks:
+                mutable_callback.append(func)
             return wrapper
 
         return inner
@@ -122,7 +132,7 @@ class SpotifyClient:
     def on_replace_state(self):
         return SpotifyClient.event_handler_wrapper(self.replace_state_callbacks)
 
-    async def run(self, *, is_blocking=True, invisible=True):
+    async def run(self, *, is_blocking=True, is_invisible=False):
 
         cluster_future = asyncio.Future()
         cluster_future.add_done_callback(
@@ -139,11 +149,10 @@ class SpotifyClient:
         self.ws_task = self.loop.create_task(
             ws_connect(
                 self.session,
-                (await self.auth.bearer_token())["accessToken"],
-                (await self.auth.bearer_token())["clientId"],
+                self.auth,
                 self.event_handler,
-                invisible=invisible,
                 cluster_future=cluster_future,
+                invisible=is_invisible,
             )
         )
 

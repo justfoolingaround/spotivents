@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
@@ -14,7 +15,13 @@ class SpotifyTrackMetadata:
     track_player: Optional[str] = None
     hidden: Optional[str] = None
     iteration: Optional[str] = None
+
+    title: Optional[str] = None
+
     artist_uri: Optional[str] = None
+    artist_name: Optional[str] = None
+    artists: List[Dict[str, str]] = field(default_factory=list)
+
     image_url: Optional[str] = None
     image_xlarge_url: Optional[str] = None
     image_large_url: Optional[str] = None
@@ -32,6 +39,8 @@ class SpotifyTrackMetadata:
     added_by_username: Optional[str] = None
 
     is_advertisement: Optional[str] = None
+    is_explicit: Optional[str] = None
+    is_promotional: Optional[str] = None
 
     is_queued: Optional[str] = None
     queued_by: Optional[str] = None
@@ -75,6 +84,20 @@ class SpotifyTrackMetadata:
             "distribution": data.pop("shuffle.distribution", None),
         }
 
+        for key, value in tuple(data.items()):
+            match = re.match(r"artist_name:(\d+)", key)
+
+            if match is not None:
+
+                data.setdefault("artists", []).append(
+                    {
+                        "name": value,
+                        "index": match.group(1),
+                        "uri": data.pop(f"artist_uri:{match.group(1)}", None),
+                    },
+                )
+            data.pop(key, None)
+
         return cls(
             actions=actions,
             autoplay=autoplay,
@@ -89,9 +112,10 @@ class SpotifyTrackMetadata:
 class SpotifyTrack:
 
     uri: str
-    uid: str
     metadata: SpotifyTrackMetadata
     provider: str
+
+    uid: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data):
@@ -146,7 +170,7 @@ class SpotifyPlaybackQuality:
     bitrate_level: str
     strategy: str
     target_bitrate_level: str
-    target_bitrate_available: bool
+    target_bitrate_available: bool = False
 
     @classmethod
     def from_dict(cls, data):
@@ -160,8 +184,6 @@ class SpotifyPlaybackQuality:
 class SpotifyPlayerState:
 
     context_url: str
-    context_restrictions: Dict
-    play_origin: Dict
     track: Optional[SpotifyTrack]
     playback_speed: float
     position_as_of_timestamp: str
@@ -169,14 +191,17 @@ class SpotifyPlayerState:
     is_paused: bool
     is_system_initiated: bool
     options: Optional[SpotifyPlayerStateOptions]
-    restrictions: Dict
-    suppressions: Dict
     page_metadata: Dict
-    session_id: str
-    queue_revision: str
     playback_quality: Optional[SpotifyPlaybackQuality]
 
+    context_restrictions: Optional[dict] = None
+    play_origin: Optional[dict] = None
+    restrictions: Optional[dict] = None
+    suppressions: Optional[dict] = None
+    queue_revision: Optional[str] = None
+
     index: Optional[dict] = None
+    session_id: Optional[str] = None
     next_tracks: Optional[List[SpotifyPlayerStatePartialTrack]] = None
     prev_tracks: Optional[List[SpotifyPlayerStatePartialTrack]] = None
     is_buffering: Optional[bool] = False
@@ -277,6 +302,10 @@ def iter_handled_payloads(
     payloads: List[Dict],
 ):
     for payload in payloads:
+
+        if not isinstance(payload, dict):
+            continue
+
         shallow_payload = payload.copy()
         update_reason = shallow_payload.get("update_reason", None)
 
