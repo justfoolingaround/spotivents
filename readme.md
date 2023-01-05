@@ -2,6 +2,9 @@
 
 Spotify client from a web browser can generally control your playback and keep track of what is going on in **real time**. This is done via websockets and various different requests.
 
+> **Warning**: Spotivents can be used for remote ad-blocking. This may cause account terminations (not encountered **yet**).
+
+
 `spotivents` uses only one library, `aiohttp`, to communicate with the client just using a singular browser cookie. Using this project, you can:
 - Receive playbacks changes as soon as they happen.
 - Control Spotify playback using pretty straight-forward methods.
@@ -98,8 +101,6 @@ async def main():
 loop = asyncio.get_event_loop()
 loop.run_until_complete(main())
 ```
-
-> **Note**: You will have to use the `to_device` keyword-argument on the playback controls if you're a regular Spotify user.
 
 ## Downloading
 
