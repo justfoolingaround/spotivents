@@ -55,7 +55,7 @@ class SpotifyClient:
                     self.loop, self.replace_state_callbacks, payload
                 )
 
-    async def cluster_handler(self, cluster):
+    async def cluster_handler(self, cluster: SpotifyDeviceStateChangeCluster):
 
         old_cluster, self.cluster = self.cluster, cluster
         SpotifyClient.dispatch_event_callbacks(

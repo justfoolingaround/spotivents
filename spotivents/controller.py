@@ -1,8 +1,11 @@
 import logging
+import time
 from binascii import hexlify, unhexlify
 
+from aiohttp import ClientResponseError
+
 from .auth import SpotifyAuthenticator
-from .constants import SPOTIFY_HOSTNAME
+from .constants import SPCLIENT_ENDPOINT, SPOTIFY_HOSTNAME, SPOTIVENTS_DEVICE_ID
 from .optopt import json
 from .utils import decode_basex_to_bytes, encode_bytes_to_basex
 
@@ -44,7 +47,14 @@ class SpotifyAPIControllerClient:
             f"https://api.{SPOTIFY_HOSTNAME}/v1/me/player",
             headers=await self.get_headers(),
         ) as response:
-            response.raise_for_status()
+            try:
+                response.raise_for_status()
+            except ClientResponseError as client_response_error:
+                if client_response_error.status in (503,):
+                    return None
+
+                raise
+
             data = await response.json()
 
         return data.get("device", {}).get("id")
@@ -63,7 +73,7 @@ class SpotifyAPIControllerClient:
 
         if include_from_to:
             active_device = to_device or await self.get_active_device_id()
-            suffix = f"/from/{from_device or bearer_token['clientId']}/to/{active_device or bearer_token['clientId']}"
+            suffix = f"/from/{from_device or SPOTIVENTS_DEVICE_ID}/to/{active_device or SPOTIVENTS_DEVICE_ID}"
         else:
             suffix = ""
 
@@ -425,3 +435,55 @@ class SpotifyAPIControllerClient:
         await self.transfer_across_device(current_device)
 
         return await self.resume()
+
+    async def fetch_user_playlist_rootlist(
+        self,
+        user_id: str,
+        decorations=("revision", "length", "attributes", "timestamp", "owner"),
+        *args,
+        **kwargs,
+    ):
+
+        async with self.session.get(
+            f"https://spclient.wg.{SPOTIFY_HOSTNAME}/playlist/v2/user/{user_id}/rootlist",
+            headers=await self.get_headers(),
+            params={"decorate": ",".join(decorations)},
+            *args,
+            **kwargs,
+        ) as response:
+            response.raise_for_status()
+            return await response.json()
+
+    async def fetch_current_user_product_state(
+        self,
+        *args,
+        **kwargs,
+    ):
+
+        async with self.session.get(
+            f"https://spclient.wg.{SPOTIFY_HOSTNAME}/melody/v1/product_state/",
+            headers=await self.get_headers(),
+            *args,
+            **kwargs,
+        ) as response:
+            response.raise_for_status()
+            return await response.json()
+
+    async def fetch_spotify_timestamp(
+        self,
+        *args,
+        instant: bool = False,
+        **kwargs,
+    ):
+
+        if instant:
+            return {"timestamp": int(time.time() * 1000)}
+
+        async with self.session.get(
+            SPCLIENT_ENDPOINT.with_path("melody/v1/time"),
+            headers=await self.get_headers(),
+            *args,
+            **kwargs,
+        ) as response:
+            response.raise_for_status()
+            return await response.json()

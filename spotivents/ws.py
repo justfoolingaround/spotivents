@@ -3,7 +3,12 @@ import threading
 
 import aiohttp
 
-from .constants import EVENT_DEALER_WS, SPCLIENT_ENDPOINT
+from .constants import (
+    DEVICE_PAYLOAD,
+    EVENT_DEALER_WS,
+    SPCLIENT_ENDPOINT,
+    SPOTIVENTS_DEVICE_ID,
+)
 from .optopt import json
 
 WS_CONNECT_STATE_PAYLOAD = {
@@ -36,37 +41,6 @@ WS_CONNECT_STATE_PAYLOAD = {
     },
 }
 
-DEVICE_CONNECT_PAYLOAD = {
-    "device": {
-        "brand": "spotify",
-        "capabilities": {
-            "change_volume": True,
-            "enable_play_token": True,
-            "supports_file_media_type": True,
-            "play_token_lost_behavior": "pause",
-            "disable_connect": False,
-            "audio_podcasts": True,
-            "video_playback": True,
-            "manifest_formats": [
-                "file_ids_mp3",
-                "file_urls_mp3",
-                "manifest_ids_video",
-                "file_urls_external",
-                "file_ids_mp4",
-                "file_ids_mp4_dual",
-            ],
-        },
-        "device_type": "computer",
-        "metadata": {},
-        "model": "web_player",
-        "name": "Spotivents",
-        "platform_identifier": "web_player windows 10;chrome 108.0.0.0;desktop",
-        "is_group": False,
-    },
-    "client_version": "harmony:4.27.1-af7f4f3",
-    "volume": 65535,
-}
-
 
 async def websocket_heartbeat(ws: aiohttp.ClientWebSocketResponse, interval=30):
 
@@ -86,7 +60,6 @@ async def ws_connect(
 ):
 
     access_token = (await auth.bearer_token())["accessToken"]
-    device_id = (await auth.bearer_token())["clientId"]
 
     async with session.ws_connect(
         EVENT_DEALER_WS, params={"access_token": access_token}
@@ -97,24 +70,24 @@ async def ws_connect(
 
         if not invisible:
 
-            payload = DEVICE_CONNECT_PAYLOAD.copy()
-            device = DEVICE_CONNECT_PAYLOAD["device"].copy()
-
-            device["device_id"] = device_id
-            payload["device"] = device
-            payload["connection_id"] = connection_id
-
             async with session.post(
                 SPCLIENT_ENDPOINT.with_path(f"/track-playback/v1/devices"),
                 headers={
                     "Authorization": f"Bearer {access_token}",
                 },
-                json=payload,
+                json={
+                    "device": DEVICE_PAYLOAD,
+                    "connection_id": connection_id,
+                    "client_version": "harmony:4.27.1-af7f4f3",
+                    "volume": (1 << 16) - 1,
+                },
             ) as response:
                 response.raise_for_status()
 
         async with session.put(
-            SPCLIENT_ENDPOINT.with_path(f"/connect-state/v1/devices/hobs_{device_id}"),
+            SPCLIENT_ENDPOINT.with_path(
+                f"/connect-state/v1/devices/hobs_{SPOTIVENTS_DEVICE_ID}"
+            ),
             headers={
                 "Authorization": f"Bearer {access_token}",
                 "x-spotify-connection-id": connection_id,
