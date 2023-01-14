@@ -487,3 +487,18 @@ class SpotifyAPIControllerClient:
         ) as response:
             response.raise_for_status()
             return await response.json()
+
+    async def fetch_stream_url(
+        self,
+        file_id: str,
+    ):
+
+        async with self.session.get(
+            SPCLIENT_ENDPOINT.with_path(
+                f"storage-resolve/v2/files/audio/interactive/{0xa}/{file_id}"
+            ),
+            params={"alt": "json"},
+            headers=await self.get_headers(),
+        ) as response:
+            response.raise_for_status()
+            return await response.json()
