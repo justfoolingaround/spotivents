@@ -1,8 +1,9 @@
 import logging
 import time
+import typing as t
 from binascii import hexlify, unhexlify
 
-from aiohttp import ClientResponseError
+from aiohttp import ClientResponseError, ClientSession
 
 from .auth import SpotifyAuthenticator
 from .constants import SPCLIENT_ENDPOINT, SPOTIFY_HOSTNAME, SPOTIVENTS_DEVICE_ID
@@ -22,11 +23,11 @@ class SpotifyAPIControllerClient:
         "episode",
     )
 
-    def __init__(self, session, auth: SpotifyAuthenticator):
+    def __init__(self, session: ClientSession, auth: SpotifyAuthenticator):
         self.session = session
         self.auth = auth
 
-    async def get_headers(self, json=False, platform=None):
+    async def get_headers(self, json: bool = False, platform: t.Optional[str] = None):
 
         headers = {
             "Authorization": f"Bearer {(await self.auth.bearer_token())['accessToken']}"
@@ -39,7 +40,7 @@ class SpotifyAPIControllerClient:
 
         return headers
 
-    async def get_active_device_id(self):
+    async def get_active_device_id(self) -> str:
 
         self.logger.debug("Getting active device ID.")
 
@@ -51,7 +52,7 @@ class SpotifyAPIControllerClient:
                 response.raise_for_status()
             except ClientResponseError as client_response_error:
                 if client_response_error.status in (503,):
-                    return None
+                    return await self.get_active_device_id()
 
                 raise
 
@@ -63,8 +64,8 @@ class SpotifyAPIControllerClient:
         self,
         method,
         url,
-        from_device: str = None,
-        to_device: str = None,
+        from_device: t.Optional[str] = None,
+        to_device: t.Optional[str] = None,
         include_from_to: bool = True,
         *args,
         **kwargs,
@@ -87,6 +88,7 @@ class SpotifyAPIControllerClient:
             **kwargs,
         ) as response:
             response.raise_for_status()
+            print(response.url)
             return await response.text()
 
     async def change_connect_state(self, name, state, *args, **kwargs):
@@ -104,12 +106,6 @@ class SpotifyAPIControllerClient:
             volume = int(volume * 65535)
 
         return await self.change_connect_state("volume", volume, *args, **kwargs)
-
-    async def set_shuffle(self, shuffle: bool, *args, **kwargs):
-        return await self.change_connect_state("shuffle", shuffle, *args, **kwargs)
-
-    async def set_repeat(self, repeat: str, *args, **kwargs):
-        return await self.change_connect_state("repeat", repeat, *args, **kwargs)
 
     async def set_playback(self, playback: str, *args, **kwargs):
 
@@ -195,7 +191,11 @@ class SpotifyAPIControllerClient:
         return await self.set_seek(position, *args, **kwargs)
 
     async def play(
-        self, entity_uri: str, skip_to_track_uri: str = None, *args, **kwargs
+        self,
+        entity_uri: str,
+        skip_to_track_uri: t.Optional[str] = None,
+        *args,
+        **kwargs,
     ):
         # FOR LIKED SONGS, USE "spotify:user:...:collection"
         # FOR YOUR EPISODES, USE "spotify:user:...:collection:your-episodes"
@@ -349,19 +349,22 @@ class SpotifyAPIControllerClient:
     async def fetch_playlist_extension(
         self,
         playlist_id: str,
-        track_ids: list = None,
-        artist_ids: list = None,
-        track_skip_ids: list = None,
-        playlist_skip_ids: list = None,
-        artist_skip_ids: list = None,
+        track_ids: t.Optional[list] = None,
+        artist_ids: t.Optional[list] = None,
+        track_skip_ids: t.Optional[list] = None,
+        playlist_skip_ids: t.Optional[list] = None,
+        artist_skip_ids: t.Optional[list] = None,
         num_results: int = 50,
         condensed: bool = False,
         decoration: bool = False,
         family: str = "all",
-        family_list: list = ["all"],
+        family_list: t.Optional[list] = None,
         *args,
         **kwargs,
     ):
+
+        if family_list is None:
+            family_list = ["all"]
 
         async with self.session.post(
             f"https://spclient.wg.{SPOTIFY_HOSTNAME}/playlistextender/extendp/",

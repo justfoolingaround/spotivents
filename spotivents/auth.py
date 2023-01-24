@@ -1,6 +1,7 @@
 import logging
 import re
 import time
+import typing as t
 
 from .constants import SPOTIFY_HOSTNAME
 from .optopt import json
@@ -23,14 +24,19 @@ class SpotifyAuthenticator:
         self.raw_client_token_response = {}
 
     @staticmethod
-    async def get_access_token_from_cookie_from_web(session, spotify_cookie):
+    async def get_access_token_from_cookie_from_web(session, spotify_cookie) -> t.Dict:
         async with session.get(
             f"https://open.{SPOTIFY_HOSTNAME}/",
             headers={"Cookie": f"sp_dc={spotify_cookie}"},
         ) as response:
             content = await response.text()
 
-        return json.loads(ACCESS_TOKEN_REGEX.search(content).group(1))
+        match = ACCESS_TOKEN_REGEX.search(content)
+
+        if match is None:
+            return {}
+
+        return json.loads(match.group(1))
 
     @staticmethod
     async def get_access_token_from_cookie(session, spotify_cookie):

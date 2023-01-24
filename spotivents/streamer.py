@@ -1,3 +1,6 @@
+import io
+import typing as t
+
 import aiohttp
 from Cryptodome.Cipher import AES
 from Cryptodome.Util import Counter
@@ -38,7 +41,7 @@ async def iter_spotify_audio_bytes(
     audio_key: bytes,
     *,
     chunk_index: int = 0,
-    file_size: int = None,
+    file_size: t.Optional[int] = None,
 ):
     """
     Iterates decrypted bytes from an encrypted Spotify track stream url.
@@ -82,8 +85,33 @@ async def iter_spotify_audio_bytes(
             decrypted_chunk = decrypt_spotify_audio(audio_key, chunk, chunk_index)
 
             if chunk_index == 0:
-                yield decrypted_chunk[0xA7:]
-            else:
-                yield decrypted_chunk
+                decrypted_chunk = decrypted_chunk[0xA7:]
+
+            yield decrypted_chunk
 
             chunk_index += 1
+
+
+def iter_spotify_audio_bytes_from_io(
+    io_object: io.IOBase,
+    audio_key: bytes,
+    *,
+    chunk_index: int = 0,
+):
+    chunk: bytes
+
+    io_object.seek(chunk_index * AUDIO_CHUNK_SIZE)
+
+    chunk = io_object.read(AUDIO_CHUNK_SIZE)
+
+    while len(chunk) == AUDIO_CHUNK_SIZE:
+
+        decrypted_chunk = decrypt_spotify_audio(audio_key, chunk, chunk_index)
+
+        if chunk_index == 0:
+            decrypted_chunk = decrypted_chunk[0xA7:]
+
+        yield decrypted_chunk
+
+        chunk_index += 1
+        chunk = io_object.read(AUDIO_CHUNK_SIZE)

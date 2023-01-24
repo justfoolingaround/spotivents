@@ -1,28 +1,29 @@
+import typing as t
 import webbrowser
 from dataclasses import is_dataclass
 
 forgivable_errors = (AttributeError, KeyError, TypeError)
 
 
-def get_from_cluster_string(cluster, attributes: frozenset) -> str:
+def get_from_cluster_string(cluster, attributes: frozenset) -> t.Optional[str]:
 
-    attr, *attributes = attributes
+    attr, *attrs = attributes
     content = getattr(cluster, attr, None)
 
     if content is None:
         return None
 
-    if attributes:
-        return get_from_cluster_string(content, attributes)
+    if attrs:
+        return get_from_cluster_string(content, frozenset(attrs))
 
     return content
 
 
 def set_from_cluster_string(cluster: str, attributes: frozenset, value: str):
-    attr, *attributes = attributes
+    attr, *attrs = attributes
 
-    if attributes:
-        set_from_cluster_string(getattr(cluster, attr), attributes, value)
+    if attrs:
+        set_from_cluster_string(getattr(cluster, attr), frozenset(attrs), value)
     else:
         setattr(cluster, attr, value)
 

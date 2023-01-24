@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import typing as t
 from collections import defaultdict
 
 import aiohttp
@@ -55,7 +56,11 @@ class SpotifyClient:
                     self.loop, self.replace_state_callbacks, payload
                 )
 
-    async def cluster_handler(self, cluster: SpotifyDeviceStateChangeCluster):
+    async def cluster_handler(
+        self, cluster: t.Optional[SpotifyDeviceStateChangeCluster]
+    ):
+        if cluster is None:
+            return
 
         old_cluster, self.cluster = self.cluster, cluster
         SpotifyClient.dispatch_event_callbacks(
@@ -80,7 +85,7 @@ class SpotifyClient:
 
         retain_nulled_values(old_cluster, cluster)
 
-    def on_cluster_change(self, *cluster_getters):
+    def on_cluster_change(self, *cluster_getters: t.Union[str, t.Callable[..., None]]):
 
         for cluster_getter in cluster_getters:
             if not isinstance(cluster_getter, str) and not hasattr(
@@ -115,7 +120,7 @@ class SpotifyClient:
 
     @staticmethod
     def dispatch_event_callbacks(
-        loop: asyncio.BaseEventLoop, mutable_callbacks: list, *args, **kwargs
+        loop: asyncio.AbstractEventLoop, mutable_callbacks: list, *args, **kwargs
     ):
         SpotifyClient.logger.debug(
             f"Dispatching event callbacks: {mutable_callbacks!r} with {(args, kwargs)})"

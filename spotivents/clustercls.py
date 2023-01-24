@@ -6,8 +6,11 @@ from typing import Dict, List, Optional
 @dataclass
 class SpotifyTrackMetadata:
 
-    actions: Dict[str, str]
-    autoplay: Dict[str, str]
+    actions: Dict[str, Optional[str]]
+    autoplay: Dict[str, Optional[str]]
+    shuffle: Dict[str, Optional[str]]
+    collection: Dict[str, Optional[str]]
+    media: Dict[str, Optional[str]]
 
     context_uri: Optional[str] = None
     entity_uri: Optional[str] = None
@@ -30,11 +33,8 @@ class SpotifyTrackMetadata:
     album_uri: Optional[str] = None
     provider: Optional[str] = None
 
-    media: Dict[str, str] = None
     decision_id: Optional[str] = None
-    collection: Dict[str, str] = None
     interaction_id: Optional[str] = None
-    shuffle: Dict[str, str] = None
     added_by_user: Optional[str] = None
     added_by_username: Optional[str] = None
 
@@ -49,12 +49,12 @@ class SpotifyTrackMetadata:
     added_at: Optional[str] = None
 
     @classmethod
-    def from_dict(cls, data):
+    def from_dict(cls, data: Optional[Dict]):
 
         if not data:
             return None
 
-        actions = {
+        actions: Dict[str, Optional[str]] = {
             "advancing_past_track": data.pop("actions.advancing_past_track", None),
             "skipping_next_past_track": data.pop(
                 "actions.skipping_next_past_track", None
@@ -64,11 +64,11 @@ class SpotifyTrackMetadata:
             ),
         }
 
-        autoplay = {
+        autoplay: Dict[str, Optional[str]] = {
             "is_autoplay": data.pop("autoplay.is_autoplay", None),
         }
 
-        media = {
+        media: Dict[str, Optional[str]] = {
             "media_type": data.pop("media.media_type", None),
             "media_start_position": data.pop("media.start_position", None),
         }
@@ -80,7 +80,7 @@ class SpotifyTrackMetadata:
             "is_banned": data.pop("collection.is_banned", None),
         }
 
-        shuffle = {
+        shuffle: Dict[str, Optional[str]] = {
             "distribution": data.pop("shuffle.distribution", None),
         }
 
@@ -112,13 +112,13 @@ class SpotifyTrackMetadata:
 class SpotifyTrack:
 
     uri: str
-    metadata: SpotifyTrackMetadata
+    metadata: Optional[SpotifyTrackMetadata]
     provider: str
 
     uid: Optional[str] = None
 
     @classmethod
-    def from_dict(cls, data):
+    def from_dict(cls, data: Optional[Dict]):
         if not data:
             return None
 
@@ -136,7 +136,7 @@ class SpotifyPlayerStateOptions:
     repeating_track: bool
 
     @classmethod
-    def from_dict(cls, data):
+    def from_dict(cls, data: Optional[Dict]):
         if not data:
             return None
 
@@ -147,14 +147,14 @@ class SpotifyPlayerStateOptions:
 class SpotifyPlayerStatePartialTrack:
 
     uri: str
-    metadata: SpotifyTrackMetadata
+    metadata: Optional[SpotifyTrackMetadata]
     provider: str
     removed: Optional[List[str]] = None
     blocked: Optional[str] = None
     uid: Optional[str] = None
 
     @classmethod
-    def from_dict(cls, data):
+    def from_dict(cls, data: Optional[Dict]):
         if not data:
             return None
 
@@ -173,7 +173,7 @@ class SpotifyPlaybackQuality:
     target_bitrate_available: bool = False
 
     @classmethod
-    def from_dict(cls, data):
+    def from_dict(cls, data: Optional[Dict]):
         if not data:
             return None
 
@@ -193,6 +193,8 @@ class SpotifyPlayerState:
     options: Optional[SpotifyPlayerStateOptions]
     page_metadata: Dict
     playback_quality: Optional[SpotifyPlaybackQuality]
+    next_tracks: List[Optional[SpotifyPlayerStatePartialTrack]]
+    prev_tracks: List[Optional[SpotifyPlayerStatePartialTrack]]
 
     context_restrictions: Optional[dict] = None
     play_origin: Optional[dict] = None
@@ -202,8 +204,7 @@ class SpotifyPlayerState:
 
     index: Optional[dict] = None
     session_id: Optional[str] = None
-    next_tracks: Optional[List[SpotifyPlayerStatePartialTrack]] = None
-    prev_tracks: Optional[List[SpotifyPlayerStatePartialTrack]] = None
+
     is_buffering: Optional[bool] = False
     timestamp: Optional[str] = None
     audio_stream: Optional[str] = None
@@ -213,7 +214,7 @@ class SpotifyPlayerState:
     context_metadata: Optional[Dict] = None
 
     @classmethod
-    def from_dict(cls, data):
+    def from_dict(cls, data: Optional[Dict]):
         if not data:
             return None
 
@@ -226,10 +227,12 @@ class SpotifyPlayerState:
             next_tracks=[
                 SpotifyPlayerStatePartialTrack.from_dict(track)
                 for track in data.pop("next_tracks", [])
+                if track is not None
             ],
             prev_tracks=[
                 SpotifyPlayerStatePartialTrack.from_dict(track)
                 for track in data.pop("prev_tracks", [])
+                if track is not None
             ],
             **data,
         )
@@ -258,7 +261,7 @@ class SpotifyConnectDevice:
     public_ip: Optional[str] = None
 
     @classmethod
-    def from_dict(cls, data):
+    def from_dict(cls, data: Optional[Dict]):
         if not data:
             return None
 
@@ -271,8 +274,8 @@ class SpotifyDeviceStateChangeCluster:
     type: str
 
     timestamp: str
-    player_state: SpotifyPlayerState
-    devices: Dict[str, SpotifyConnectDevice]
+    player_state: Optional[SpotifyPlayerState]
+    devices: Dict[str, Optional[SpotifyConnectDevice]]
     need_full_player_state: bool
     server_timestamp_ms: str
 
@@ -281,7 +284,7 @@ class SpotifyDeviceStateChangeCluster:
     active_device_id: Optional[str] = None
 
     @classmethod
-    def from_dict(cls, type, data):
+    def from_dict(cls, type: str, data: Optional[Dict]):
         if not data:
             return None
 
@@ -307,9 +310,9 @@ def iter_handled_payloads(
             continue
 
         shallow_payload = payload.copy()
-        update_reason = shallow_payload.get("update_reason", None)
+        update_reason: Optional[str] = shallow_payload.get("update_reason", None)
 
-        if update_reason in (
+        if update_reason is not None and update_reason in (
             "DEVICE_STATE_CHANGED",
             "DEVICE_VOLUME_CHANGED",
             "DEVICES_DISAPPEARED",
