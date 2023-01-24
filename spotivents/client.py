@@ -30,7 +30,7 @@ class SpotifyClient:
 
         self.cluster_change_handlers = defaultdict(list)
         self.cluster: "SpotifyDeviceStateChangeCluster | None" = None
-        self.cluster_recieve_callbacks = list()
+        self.cluster_receive_callbacks = list()
         self.cluster_ready_callbacks = list()
 
         self.latency: float = float("inf")
@@ -78,7 +78,7 @@ class SpotifyClient:
 
         old_cluster, self.cluster = self.cluster, cluster
         SpotifyClient.dispatch_event_callbacks(
-            self.loop, self.cluster_recieve_callbacks, cluster
+            self.loop, self.cluster_receive_callbacks, cluster
         )
 
         if old_cluster is None:
@@ -145,8 +145,8 @@ class SpotifyClient:
         for callback in mutable_callbacks:
             loop.create_task(callback(*args, **kwargs))
 
-    def on_cluster_recieve(self):
-        return SpotifyClient.event_handler_wrapper(self.cluster_recieve_callbacks)
+    def on_cluster_receive(self):
+        return SpotifyClient.event_handler_wrapper(self.cluster_receive_callbacks)
 
     def on_cluster_ready(self):
         return SpotifyClient.event_handler_wrapper(self.cluster_ready_callbacks)
