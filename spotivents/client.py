@@ -33,7 +33,7 @@ class SpotifyClient:
 
         self.replace_state_callbacks = list()
 
-    async def event_handler(self, content):
+    async def event_handler(self, content: t.Dict):
 
         self.logger.debug(f"Received event payload: {content}")
 
@@ -43,9 +43,9 @@ class SpotifyClient:
         if {_.lower(): __ for _, __ in content.get("headers", {}).items()}.get(
             "content-type"
         ) != "application/json":
-            return print(content)
+            return
 
-        for payload in iter_handled_payloads(content["payloads"]):
+        for payload in iter_handled_payloads(content.get("payloads", [])):
             cluster = payload.get("cluster")
 
             if isinstance(cluster, SpotifyDeviceStateChangeCluster):
