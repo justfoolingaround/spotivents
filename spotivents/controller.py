@@ -56,7 +56,7 @@ class SpotifyAPIControllerClient:
 
                 raise
 
-            data = await response.json()
+            data = await response.json(content_type=None)
 
         return data.get("device", {}).get("id")
 
@@ -88,7 +88,6 @@ class SpotifyAPIControllerClient:
             **kwargs,
         ) as response:
             response.raise_for_status()
-            print(response.url)
             return await response.text()
 
     async def change_connect_state(self, name, state, *args, **kwargs):

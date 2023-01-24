@@ -122,3 +122,20 @@ def run_spotify_protocol(
     return webbrowser.open(
         f"spotify://spotify:{content_type}:{content_id}", autoraise=autoraise
     )
+
+
+def truncated_repl(object, *, maxlen: int = 50):
+    """
+    Change <xyz object at 0x000000000000> to <xyz…> for eye bleaching.
+    """
+    out = repr(object)
+
+    suffix = out[-1]
+
+    if suffix in ">'\")}]":
+        suffix = "…" + suffix
+
+    if len(out) > maxlen:
+        return out[: maxlen - len(suffix)] + suffix
+
+    return out

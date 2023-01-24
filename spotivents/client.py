@@ -1,5 +1,7 @@
 import asyncio
 import logging
+import threading
+import time
 import typing as t
 from collections import defaultdict
 
@@ -7,7 +9,7 @@ import aiohttp
 
 from .auth import SpotifyAuthenticator
 from .clustercls import SpotifyDeviceStateChangeCluster, iter_handled_payloads
-from .utils import get_from_cluster_getter, retain_nulled_values
+from .utils import get_from_cluster_getter, retain_nulled_values, truncated_repl
 from .ws import ws_connect
 
 
@@ -31,14 +33,26 @@ class SpotifyClient:
         self.cluster_recieve_callbacks = list()
         self.cluster_ready_callbacks = list()
 
+        self.latency: float = float("inf")
+        self.last_ping: float = 0.0
+
         self.replace_state_callbacks = list()
 
     async def event_handler(self, content: t.Dict):
 
-        self.logger.debug(f"Received event payload: {content}")
-
         if content["type"] == "pong":
+
+            self.latency = time.time() - self.last_ping
+            self.logger.debug(
+                f"Spotify websocket running at latency: {self.latency * 1000:.2f}ms"
+            )
+            if self.latency > 1000:
+                self.logger.warning(
+                    f"Spotify websocket latency is high: {self.latency * 1000:.2f}ms, you may receive events late!"
+                )
             return
+
+        self.logger.debug(f"Received event payload: {truncated_repl(content)}")
 
         if {_.lower(): __ for _, __ in content.get("headers", {}).items()}.get(
             "content-type"
@@ -122,9 +136,12 @@ class SpotifyClient:
     def dispatch_event_callbacks(
         loop: asyncio.AbstractEventLoop, mutable_callbacks: list, *args, **kwargs
     ):
-        SpotifyClient.logger.debug(
-            f"Dispatching event callbacks: {mutable_callbacks!r} with {(args, kwargs)})"
-        )
+
+        if mutable_callbacks:
+            SpotifyClient.logger.debug(
+                f"Dispatching event callbacks: {mutable_callbacks!r} with {truncated_repl((args, kwargs))})"
+            )
+
         for callback in mutable_callbacks:
             loop.create_task(callback(*args, **kwargs))
 
@@ -158,8 +175,18 @@ class SpotifyClient:
                 self.event_handler,
                 cluster_future=cluster_future,
                 invisible=is_invisible,
+                heartbeat_coro=self.heartbeat_task,
             )
         )
 
         if is_blocking:
             await self.ws_task
+
+    async def heartbeat_task(self, ws: aiohttp.ClientWebSocketResponse, interval=30):
+
+        main_thread = threading.main_thread()
+
+        while not ws.closed and main_thread.is_alive():
+            await ws.send_json({"type": "ping"})
+            self.last_ping = time.time()
+            await asyncio.sleep(interval)

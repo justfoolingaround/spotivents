@@ -42,19 +42,11 @@ WS_CONNECT_STATE_PAYLOAD = {
 }
 
 
-async def websocket_heartbeat(ws: aiohttp.ClientWebSocketResponse, interval=30):
-
-    main_thread = threading.main_thread()
-
-    while not ws.closed and main_thread.is_alive():
-        await ws.send_json({"type": "ping"})
-        await asyncio.sleep(interval)
-
-
 async def ws_connect(
     session: aiohttp.ClientSession,
     auth,
     event_handler,
+    heartbeat_coro,
     invisible=True,
     cluster_future=None,
 ):
@@ -99,7 +91,7 @@ async def ws_connect(
                 cluster_future.set_result(json.loads(await response.text()))
 
         event_loop = asyncio.get_event_loop()
-        event_loop.create_task(websocket_heartbeat(ws, interval=15))
+        event_loop.create_task(heartbeat_coro(ws, interval=15))
 
         async for msg in ws:
             _ = event_loop.create_task(event_handler(msg.json()))
