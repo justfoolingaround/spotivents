@@ -6,7 +6,8 @@ from binascii import hexlify, unhexlify
 from aiohttp import ClientResponseError, ClientSession
 
 from .auth import SpotifyAuthenticator
-from .constants import SPCLIENT_ENDPOINT, SPOTIFY_HOSTNAME, SPOTIVENTS_DEVICE_ID
+from .constants import (SPCLIENT_ENDPOINT, SPOTIFY_HOSTNAME,
+                        SPOTIVENTS_DEVICE_ID)
 from .optopt import json
 from .utils import decode_basex_to_bytes, encode_bytes_to_basex
 
@@ -297,7 +298,6 @@ class SpotifyAPIControllerClient:
     async def query_entity_metadata(
         self, entity_id: str, entity_type: str, *args, **kwargs
     ):
-
         assert entity_type in self.entity_types
 
         hex_id = self.convert_spotify_id_to_hex(entity_id)

@@ -1,10 +1,49 @@
 import re
-from dataclasses import dataclass, field
+import warnings
+from dataclasses import _MISSING_TYPE, Field, dataclass, field
 from typing import Dict, List, Optional
 
 
+def iter_defaults(dataclass_fields):
+
+    for key, value in dataclass_fields.items():
+        if not isinstance(value.default, _MISSING_TYPE):
+            yield key, value.default
+
+        elif not isinstance(value.default_factory, _MISSING_TYPE):
+            yield key, value.default_factory()
+
+
 @dataclass
-class SpotifyTrackMetadata:
+class SafeDataclass:
+    def __init__(self, **kwargs):
+
+        values = dict(iter_defaults(self.__dataclass_fields__))
+        values.update(kwargs)
+
+        fields = set(self.__dataclass_fields__.keys())
+        passed = set(values.keys())
+
+        missing_fields = fields - passed
+        new_fields = passed - fields
+
+        if new_fields:
+            warnings.warn(f"New fields: {new_fields} for {self.__class__.__name__}")
+
+        if missing_fields:
+            warnings.warn(
+                f"Missing fields: {missing_fields} for {self.__class__.__name__}"
+            )
+
+        for new_field in new_fields:
+            values.pop(new_field, None)
+
+        for key, value in values.items():
+            setattr(self, key, value)
+
+
+@dataclass(init=False)
+class SpotifyTrackMetadata(SafeDataclass):
 
     actions: Dict[str, Optional[str]]
     autoplay: Dict[str, Optional[str]]
@@ -108,8 +147,8 @@ class SpotifyTrackMetadata:
         )
 
 
-@dataclass
-class SpotifyTrack:
+@dataclass(init=False)
+class SpotifyTrack(SafeDataclass):
 
     uri: str
     metadata: Optional[SpotifyTrackMetadata]
@@ -128,8 +167,8 @@ class SpotifyTrack:
         )
 
 
-@dataclass
-class SpotifyPlayerStateOptions:
+@dataclass(init=False)
+class SpotifyPlayerStateOptions(SafeDataclass):
 
     shuffling_context: bool
     repeating_context: bool
@@ -143,8 +182,8 @@ class SpotifyPlayerStateOptions:
         return cls(**data)
 
 
-@dataclass
-class SpotifyPlayerStatePartialTrack:
+@dataclass(init=False)
+class SpotifyPlayerStatePartialTrack(SafeDataclass):
 
     uri: str
     metadata: Optional[SpotifyTrackMetadata]
@@ -164,8 +203,8 @@ class SpotifyPlayerStatePartialTrack:
         )
 
 
-@dataclass
-class SpotifyPlaybackQuality:
+@dataclass(init=False)
+class SpotifyPlaybackQuality(SafeDataclass):
 
     bitrate_level: str
     strategy: str
@@ -180,8 +219,8 @@ class SpotifyPlaybackQuality:
         return cls(**data)
 
 
-@dataclass
-class SpotifyPlayerState:
+@dataclass(init=False)
+class SpotifyPlayerState(SafeDataclass):
 
     context_url: str
     track: Optional[SpotifyTrack]
@@ -238,8 +277,8 @@ class SpotifyPlayerState:
         )
 
 
-@dataclass
-class SpotifyConnectDevice:
+@dataclass(init=False)
+class SpotifyConnectDevice(SafeDataclass):
 
     capabilities: Dict
     device_type: str
@@ -268,8 +307,8 @@ class SpotifyConnectDevice:
         return cls(**data)
 
 
-@dataclass
-class SpotifyDeviceStateChangeCluster:
+@dataclass(init=False)
+class SpotifyDeviceStateChangeCluster(SafeDataclass):
 
     type: str
 
@@ -280,6 +319,7 @@ class SpotifyDeviceStateChangeCluster:
     server_timestamp_ms: str
 
     not_playing_since_timestamp: Optional[str] = None
+    needs_state_updates: Optional[str] = None
     transfer_data_timestamp: Optional[str] = None
     active_device_id: Optional[str] = None
 

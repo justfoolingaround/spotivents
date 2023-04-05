@@ -99,7 +99,7 @@ class SpotifyClient:
 
         retain_nulled_values(old_cluster, cluster)
 
-    def on_cluster_change(self, *cluster_getters: t.Union[str, t.Callable[..., None]]):
+    def on_cluster_change(self, *cluster_getters: t.Union[str, t.Callable[..., t.Any]]):
 
         for cluster_getter in cluster_getters:
             if not isinstance(cluster_getter, str) and not hasattr(
