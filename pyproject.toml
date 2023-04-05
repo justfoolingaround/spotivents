@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "spotivents"
-version = "0.2.0"
+version = "0.2.1"
 description = "A fully asynchronous Spotify Dealer and Connect Client"
 authors = ["justfoolingaround <kr.justfoolingaround@gmail.com>"]
 
