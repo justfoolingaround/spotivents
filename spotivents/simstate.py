@@ -87,7 +87,7 @@ class SpotiyState:
         else:
             state_ref = None
 
-        pos = int(self.client.cluster.player_state.position_as_of_timestamp)
+        pos = int(self.client.cluster.player_state.position_as_of_timestamp.value())
 
         sub_state = {
             "audio_quality": DEFAULT_FILE["audio_quality"],
@@ -156,8 +156,6 @@ class SpotiyState:
         )
 
     async def replace(self, data: t.Dict):
-        # WARNING: This bleeds out, i.e. if you "pause" or "resume", it resets back to last
-        #          known position of the track!
 
         new_pause = data.get("state_ref", {}).get("paused", True)
 

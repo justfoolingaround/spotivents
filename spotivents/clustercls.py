@@ -1,7 +1,9 @@
 import re
 import warnings
-from dataclasses import _MISSING_TYPE, Field, dataclass, field
+from dataclasses import _MISSING_TYPE, dataclass, field
 from typing import Dict, List, Optional
+
+from .utils import TimePosition
 
 
 def iter_defaults(dataclass_fields):
@@ -225,7 +227,7 @@ class SpotifyPlayerState(SafeDataclass):
     context_url: str
     track: Optional[SpotifyTrack]
     playback_speed: float
-    position_as_of_timestamp: str
+    position_as_of_timestamp: TimePosition
     is_playing: bool
     is_paused: bool
     is_system_initiated: bool
@@ -257,6 +259,9 @@ class SpotifyPlayerState(SafeDataclass):
         if not data:
             return None
 
+        position_as_of_timestamp = data.pop("position_as_of_timestamp")
+        is_playing = not data.get("is_paused", False)
+
         return cls(
             track=SpotifyTrack.from_dict(data.pop("track", None)),
             options=SpotifyPlayerStateOptions.from_dict(data.pop("options", None)),
@@ -273,6 +278,9 @@ class SpotifyPlayerState(SafeDataclass):
                 for track in data.pop("prev_tracks", [])
                 if track is not None
             ],
+            position_as_of_timestamp=TimePosition(
+                is_playing, int(position_as_of_timestamp)
+            ),
             **data,
         )
 
@@ -349,11 +357,11 @@ def iter_handled_payloads(
             continue
 
         shallow_payload = payload.copy()
-        
+
         if shallow_payload.get("type") == "replace_state":
             yield shallow_payload
             continue
-        
+
         update_reason: Optional[str] = shallow_payload.get(
             "update_reason", "CLIENT_CALLBACK"
         )
@@ -372,4 +380,3 @@ def iter_handled_payloads(
                 ),
                 **shallow_payload,
             }
-        

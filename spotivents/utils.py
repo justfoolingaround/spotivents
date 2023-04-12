@@ -1,3 +1,4 @@
+import time
 import typing as t
 import webbrowser
 from dataclasses import is_dataclass
@@ -194,3 +195,17 @@ class CaseInsensitiveDict(dict):
 
     def __eq__(self, other):
         return dict(self.items()) == dict(other.items())
+
+
+class TimePosition:
+    def __init__(self, is_moving: bool, position: int) -> None:
+        self.is_moving = is_moving
+        self.position = position
+
+        self.time = time.time()
+
+    def value(self):
+        if self.is_moving:
+            return self.position + (time.time() - self.time) * 1000
+        else:
+            return self.position
