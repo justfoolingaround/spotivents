@@ -9,7 +9,13 @@ import aiohttp
 
 from .auth import SpotifyAuthenticator
 from .clustercls import SpotifyDeviceStateChangeCluster, iter_handled_payloads
-from .utils import get_from_cluster_getter, retain_nulled_values, truncated_repl
+from .simstate import SpotiyState
+from .utils import (
+    CaseInsensitiveDict,
+    get_from_cluster_getter,
+    retain_nulled_values,
+    truncated_repl,
+)
 from .ws import ws_connect
 
 
@@ -21,6 +27,8 @@ class SpotifyClient:
         self,
         session: aiohttp.ClientSession,
         auth: "SpotifyAuthenticator",
+        *,
+        playable_spotivents: bool = False,
     ):
 
         self.loop = asyncio.get_event_loop()
@@ -36,7 +44,44 @@ class SpotifyClient:
         self.latency: float = float("inf")
         self.last_ping: float = 0.0
 
-        self.replace_state_callbacks = list()
+        self.replace_state_callbacks = (
+            [self.accept_replace_state, self.update_replace_state]
+            if playable_spotivents
+            else []
+        )
+        self.state: SpotiyState | None = None
+
+    async def update_replace_state(self, content: t.Dict):
+        if self.state is None:
+            return
+
+        await self.state.replace(content)
+
+    async def accept_replace_state(self, content: t.Dict):
+
+        if self.state:
+            return
+
+        if self.cluster is None or self.cluster.player_state is None:
+            return
+
+        if content["state_ref"] is None:
+            return
+
+        state_machine_id = content["state_machine"]["state_machine_id"]
+
+        state_id = content["state_machine"]["states"][
+            content["state_ref"]["state_index"]
+        ]["state_id"]
+
+        self.state = SpotiyState(
+            self,
+            state_id,
+            state_machine_id,
+            content,
+        )
+
+        return await self.state.accept()
 
     async def event_handler(self, content: t.Dict):
 
@@ -54,9 +99,9 @@ class SpotifyClient:
 
         self.logger.debug(f"Received event payload: {truncated_repl(content)}")
 
-        if {_.lower(): __ for _, __ in content.get("headers", {}).items()}.get(
-            "content-type"
-        ) != "application/json":
+        headers = CaseInsensitiveDict(content.get("headers", {}))
+
+        if headers.get("content-type") != "application/json":
             return
 
         for payload in iter_handled_payloads(content.get("payloads", [])):

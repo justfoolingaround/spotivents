@@ -317,9 +317,9 @@ class SpotifyDeviceStateChangeCluster(SafeDataclass):
     devices: Dict[str, Optional[SpotifyConnectDevice]]
     need_full_player_state: bool
     server_timestamp_ms: str
+    needs_state_updates: bool = False
 
     not_playing_since_timestamp: Optional[str] = None
-    needs_state_updates: Optional[str] = None
     transfer_data_timestamp: Optional[str] = None
     active_device_id: Optional[str] = None
 
@@ -345,18 +345,25 @@ def iter_handled_payloads(
     payloads: List[Dict],
 ):
     for payload in payloads:
-
         if not isinstance(payload, dict):
             continue
 
         shallow_payload = payload.copy()
-        update_reason: Optional[str] = shallow_payload.get("update_reason", None)
+        
+        if shallow_payload.get("type") == "replace_state":
+            yield shallow_payload
+            continue
+        
+        update_reason: Optional[str] = shallow_payload.get(
+            "update_reason", "CLIENT_CALLBACK"
+        )
 
-        if update_reason is not None and update_reason in (
+        if update_reason in (
             "DEVICE_STATE_CHANGED",
             "DEVICE_VOLUME_CHANGED",
             "DEVICES_DISAPPEARED",
             "DEVICE_NEW_CONNECTION",
+            "CLIENT_CALLBACK",
         ):
             cluster = shallow_payload.pop("cluster", None)
             yield {
@@ -365,6 +372,4 @@ def iter_handled_payloads(
                 ),
                 **shallow_payload,
             }
-        else:
-            if shallow_payload.get("type") == "replace_state":
-                yield shallow_payload
+        

@@ -136,3 +136,61 @@ def truncated_repl(object, *, maxlen: int = 50):
         return out[: maxlen - len(suffix)] + suffix
 
     return out
+
+
+class CaseInsensitiveDict(dict):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__normalise_keys()
+
+    def __setitem__(self, key, value):
+        super().__setitem__(key.lower(), value)
+
+    def __getitem__(self, key):
+        return super().__getitem__(key.lower())
+
+    def __delitem__(self, key):
+        return super().__delitem__(key.lower())
+
+    def __contains__(self, key):
+        return super().__contains__(key.lower())
+
+    def __normalise_keys(self):
+        for key in list(self.keys()):
+            self[key.lower()] = self.pop(key)
+
+    def update(self, *args, **kwargs):
+        super().update(*args, **kwargs)
+        self.__normalise_keys()
+
+    def copy(self):
+        return CaseInsensitiveDict(self)
+
+    def __copy__(self):
+        return self.copy()
+
+    def __deepcopy__(self, memo):
+        import copy
+
+        return CaseInsensitiveDict(copy.deepcopy(dict(self), memo))
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({super().__repr__()})"
+
+    def __str__(self):
+        return f"{self.__class__.__name__}({super().__str__()})"
+
+    def get(self, key, default=None):
+        return super().get(key.lower(), default)
+
+    def pop(self, key, default=None):
+        return super().pop(key.lower(), default)
+
+    def setdefault(self, key, default=None):
+        return super().setdefault(key.lower(), default)
+
+    def has_key(self, k):
+        return k.lower() in self
+
+    def __eq__(self, other):
+        return dict(self.items()) == dict(other.items())
